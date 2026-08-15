@@ -1,0 +1,28 @@
+# ---- Environment / secrets (never commit) ----
+.env
+.env.local
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- Django ----
+staticfiles/
+db.sqlite3
+media/
+
+# ---- Vercel ----
+.vercel/
+
+# ---- Agent tooling ----
+.freebuff/
+
+# ---- OS / editors ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

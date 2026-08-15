@@ -1,0 +1,3 @@
+* text=auto
+build_files.sh text eol=lf
+vercel.json text eol=lf
