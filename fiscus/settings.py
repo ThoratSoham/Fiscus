@@ -29,6 +29,11 @@ DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
+# Origins permitted to submit CSRF-protected POSTs. Same-origin POSTs are
+# already covered by ALLOWED_HOSTS; add this for custom domains or future
+# cross-origin clients. Format: https://fiscus-one.vercel.app
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -95,12 +100,22 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Serve static files straight from app static dirs via Django's finders.
+# On Vercel the Python lambda is built separately from the static build that
+# runs `collectstatic`, so staticfiles.json/STATIC_ROOT are never present in
+# the lambda. Using finders means static assets (which ARE bundled into the
+# lambda) always resolve — no collectstatic step required. Trade-off: no
+# hashed/cache-busted filenames.
+WHITENOISE_USE_FINDERS = True
+
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
+    # Non-manifest storage: {% static %} resolves plain paths and can never
+    # raise "Missing staticfiles manifest entry" when collectstatic hasn't run.
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
