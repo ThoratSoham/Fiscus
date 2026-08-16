@@ -6,7 +6,7 @@ from .models import Instrument, Order
 class InstrumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Instrument
-        fields = ["id", "symbol", "name", "kind", "yahoo_symbol", "default_price", "is_active"]
+        fields = ["id", "symbol", "name", "kind", "base_price", "volatility", "drift", "is_active"]
 
 
 class OrderSerializer(serializers.ModelSerializer):

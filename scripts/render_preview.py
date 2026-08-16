@@ -77,13 +77,13 @@ def real_config():
 
 INVEST_MOCK = """{
   "instruments": [
-    {"id": 1, "symbol": "NIFTY 50", "name": "Nifty 50 Index", "kind": "index", "price": "24366.0000", "as_of": "2026-08-14T10:15:00+05:30", "source": "yahoo", "stale": false},
-    {"id": 2, "symbol": "BANK NIFTY", "name": "Nifty Bank Index", "kind": "index", "price": "57491.1000", "as_of": "2026-08-14T10:15:00+05:30", "source": "yahoo", "stale": false},
-    {"id": 3, "symbol": "SENSEX", "name": "BSE Sensex", "kind": "index", "price": "78009.2500", "as_of": "2026-08-14T10:15:00+05:30", "source": "yahoo", "stale": false},
-    {"id": 4, "symbol": "RELIANCE", "name": "Reliance Industries", "kind": "stock", "price": "1310.0000", "as_of": "2026-08-14T10:15:00+05:30", "source": "yahoo", "stale": false},
-    {"id": 5, "symbol": "TCS", "name": "Tata Consultancy Services", "kind": "stock", "price": "2420.0000", "as_of": "2026-08-14T10:15:00+05:30", "source": "yahoo", "stale": false},
-    {"id": 6, "symbol": "HDFCBANK", "name": "HDFC Bank", "kind": "stock", "price": "727.0000", "as_of": "2026-08-14T10:15:00+05:30", "source": "yahoo", "stale": false},
-    {"id": 7, "symbol": "INFY", "name": "Infosys", "kind": "stock", "price": "1169.2000", "as_of": "2026-08-14T10:15:00+05:30", "source": "yahoo", "stale": false}
+    {"id": 1, "symbol": "NIFTY-SIM", "name": "Nifty Sim Index", "kind": "index", "price": "24531.75", "as_of": "2026-08-16T10:15:00+05:30", "source": "simulated", "stale": false},
+    {"id": 2, "symbol": "BANKNIFTY-SIM", "name": "Bank Nifty Sim Index", "kind": "index", "price": "52108.40", "as_of": "2026-08-16T10:15:00+05:30", "source": "simulated", "stale": false},
+    {"id": 3, "symbol": "SENSEX-SIM", "name": "Sensex Sim Index", "kind": "index", "price": "80211.90", "as_of": "2026-08-16T10:15:00+05:30", "source": "simulated", "stale": false},
+    {"id": 4, "symbol": "ORBIT", "name": "Orbit Motors", "kind": "stock", "price": "493.60", "as_of": "2026-08-16T10:15:00+05:30", "source": "simulated", "stale": false},
+    {"id": 5, "symbol": "PIXEL", "name": "Pixelworks Tech", "kind": "stock", "price": "1472.10", "as_of": "2026-08-16T10:15:00+05:30", "source": "simulated", "stale": false},
+    {"id": 6, "symbol": "DUNE", "name": "Dune Metals", "kind": "stock", "price": "594.30", "as_of": "2026-08-16T10:15:00+05:30", "source": "simulated", "stale": false},
+    {"id": 7, "symbol": "SOLARIS", "name": "Solaris Energy", "kind": "stock", "price": "101.85", "as_of": "2026-08-16T10:15:00+05:30", "source": "simulated", "stale": false}
   ],
   "portfolio": {
     "starting_balance": "100000.00",
@@ -93,16 +93,16 @@ INVEST_MOCK = """{
     "return_amount": "130.00",
     "return_pct": "0.13",
     "holdings": [
-      {"instrument_id": 4, "symbol": "RELIANCE", "name": "Reliance Industries", "quantity": "10", "avg_price": "1310.0000", "last_price": "1310.0000", "invested": "13100.00", "current_value": "13100.00", "pnl": "0.00", "pnl_pct": "0.00", "stale": false},
-      {"instrument_id": 1, "symbol": "NIFTY 50", "name": "Nifty 50 Index", "quantity": "0.5", "avg_price": "24366.0000", "last_price": "24366.0000", "invested": "12183.00", "current_value": "12183.00", "pnl": "0.00", "pnl_pct": "0.00", "stale": false},
-      {"instrument_id": 5, "symbol": "TCS", "name": "Tata Consultancy Services", "quantity": "10", "avg_price": "2361.0000", "last_price": "2420.0000", "invested": "23610.00", "current_value": "24200.00", "pnl": "590.00", "pnl_pct": "2.50", "stale": false},
-      {"instrument_id": 6, "symbol": "HDFCBANK", "name": "HDFC Bank", "quantity": "20", "avg_price": "750.0000", "last_price": "727.0000", "invested": "15000.00", "current_value": "14540.00", "pnl": "-460.00", "pnl_pct": "-3.07", "stale": false}
+      {"instrument_id": 4, "symbol": "ORBIT", "name": "Orbit Motors", "quantity": "10", "avg_price": "480.0000", "last_price": "493.60", "invested": "4800.00", "current_value": "4936.00", "pnl": "136.00", "pnl_pct": "2.83", "stale": false},
+      {"instrument_id": 1, "symbol": "NIFTY-SIM", "name": "Nifty Sim Index", "quantity": "0.5", "avg_price": "24500.0000", "last_price": "24531.75", "invested": "12250.00", "current_value": "12265.88", "pnl": "15.88", "pnl_pct": "0.13", "stale": false},
+      {"instrument_id": 5, "symbol": "PIXEL", "name": "Pixelworks Tech", "quantity": "10", "avg_price": "1450.0000", "last_price": "1472.10", "invested": "14500.00", "current_value": "14721.00", "pnl": "221.00", "pnl_pct": "1.52", "stale": false},
+      {"instrument_id": 6, "symbol": "DUNE", "name": "Dune Metals", "quantity": "20", "avg_price": "610.0000", "last_price": "594.30", "invested": "12200.00", "current_value": "11886.00", "pnl": "-314.00", "pnl_pct": "-2.57", "stale": false}
     ],
     "recent_orders": [
-      {"id": 1, "instrument_symbol": "RELIANCE", "side": "buy", "quantity": "10", "price": "1310.0000", "created_at": "2026-08-14T10:02:00Z"},
-      {"id": 2, "instrument_symbol": "NIFTY 50", "side": "buy", "quantity": "0.5", "price": "24366.0000", "created_at": "2026-08-14T09:41:00Z"},
-      {"id": 3, "instrument_symbol": "TCS", "side": "buy", "quantity": "10", "price": "2361.0000", "created_at": "2026-08-13T12:20:00Z"},
-      {"id": 4, "instrument_symbol": "HDFCBANK", "side": "buy", "quantity": "20", "price": "750.0000", "created_at": "2026-08-13T11:05:00Z"}
+      {"id": 1, "instrument_symbol": "ORBIT", "side": "buy", "quantity": "10", "price": "480.0000", "created_at": "2026-08-16T10:02:00Z"},
+      {"id": 2, "instrument_symbol": "NIFTY-SIM", "side": "buy", "quantity": "0.5", "price": "24500.0000", "created_at": "2026-08-16T09:41:00Z"},
+      {"id": 3, "instrument_symbol": "PIXEL", "side": "buy", "quantity": "10", "price": "1450.0000", "created_at": "2026-08-15T12:20:00Z"},
+      {"id": 4, "instrument_symbol": "DUNE", "side": "buy", "quantity": "20", "price": "610.0000", "created_at": "2026-08-15T11:05:00Z"}
     ]
   }
 }"""

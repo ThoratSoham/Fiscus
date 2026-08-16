@@ -24,10 +24,6 @@
     {
       "path": "/api/cron/streaks/",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/prices/",
-      "schedule": "45 3 * * 1-5"
     }
   ]
 }
