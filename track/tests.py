@@ -10,7 +10,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
-from .auth import SupabaseJWTAuthentication, SupabaseUser
+from core.auth import SupabaseJWTAuthentication, SupabaseUser
 from .models import Budget, Category, Expense
 
 
@@ -59,7 +59,7 @@ class SupabaseJWTAuthenticationTests(TestCase):
             "/", HTTP_AUTHORIZATION="Bearer " + self._token()
         )
         with mock.patch(
-            "track.auth._get_jwks_client",
+            "core.auth._get_jwks_client",
             return_value=type(
                 "FakeClient",
                 (),
@@ -80,7 +80,7 @@ class SupabaseJWTAuthenticationTests(TestCase):
             "/", HTTP_AUTHORIZATION="Bearer " + self._token(exp_offset=-3600)
         )
         with mock.patch(
-            "track.auth._get_jwks_client",
+            "core.auth._get_jwks_client",
             return_value=type(
                 "FakeClient",
                 (),
@@ -95,7 +95,7 @@ class SupabaseJWTAuthenticationTests(TestCase):
     def test_garbage_token_rejected(self):
         request = self.factory.get("/", HTTP_AUTHORIZATION="Bearer not-a-jwt")
         with mock.patch(
-            "track.auth._get_jwks_client",
+            "core.auth._get_jwks_client",
             return_value=type(
                 "FakeClient",
                 (),

@@ -16,7 +16,7 @@ db.sqlite3
 media/
 
 # ---- Dev artifacts ----
-preview.html
+preview*.html
 
 # ---- Vercel ----
 .vercel/

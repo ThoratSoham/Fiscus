@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 
-from .auth import SupabaseJWTAuthentication
+from core.auth import SupabaseJWTAuthentication
 from .models import Budget, Category, Expense
 from .serializers import BudgetSerializer, CategorySerializer, ExpenseSerializer
 

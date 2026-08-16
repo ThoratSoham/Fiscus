@@ -28,8 +28,17 @@ Stat numbers/labels are placeholders — swap in the deck's figures in `index.ht
 ```bash
 .venv/Scripts/python.exe manage.py migrate          # create tables in Supabase
 .venv/Scripts/python.exe scripts/apply_rls.py        # enable RLS + policies
-# tests (JWT auth + API) — use a local DB so the runner doesn't touch Supabase
-DATABASE_URL=sqlite:///test.db .venv/Scripts/python.exe manage.py test track
+# tests — use a local DB so the runner doesn't touch Supabase
+DATABASE_URL=sqlite:///test.db .venv/Scripts/python.exe manage.py test track learn
+
+## Phase 4: Learn module (lessons + quizzes)
+
+- `learn/models.py` — `Lesson` (title, content, `quiz_questions` JSONField, order/slug) and `QuizAttempt` (user_id, lesson, score, streak_count, badge — badge is reserved for Phase 5).
+- `learn/management/commands/seed_lessons.py` — idempotent seed of the six lessons (Budgeting Basics → Reading a Portfolio), static content, DB-stored, no CMS.
+- Pages: `/learn/` (list, with best-score ✓ marks + current streak when logged in) and `/learn/<slug>/` (lesson content + playable quiz).
+- Quiz (`learn/static/learn/js/learn.js`): vanilla JS, instant per-question feedback with no page reload, question locking, auto-save on completion.
+- `POST /api/lessons/<id>/attempt/` (Supabase JWT) — verifies answers, records a `QuizAttempt`, and returns score + the user's day-based streak (consecutive days with a completed quiz; same-day repeats don't inflate it). `GET /api/lessons/attempts/` returns best scores per lesson.
+- `SupabaseJWTAuthentication` moved to `core/auth.py` so Track and Learn share it (track imports updated; 24 tests pass).
 ```
 
 ## Stack

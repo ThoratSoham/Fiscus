@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FISCUS — Learn</title>
+  <link rel="stylesheet" href="{% static 'core/css/brutalist.css' %}">
+  <link rel="stylesheet" href="{% static 'learn/css/learn.css' %}">
+  {{ config|json_script:"fiscus-config" }}
+</head>
+<body>
+
+  <div class="page-grid" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="topbar__brand" href="/">FISCUS</a>
+    <nav class="topbar__nav" aria-label="Primary">
+      <a href="/">Landing</a>
+      <a href="/learn/" class="is-active">Learn</a>
+      <a href="/dashboard/">Track</a>
+      <a href="/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <main class="learn">
+    <section class="learn__head">
+      <h1 class="section-title">Learn</h1>
+      <p class="learn__sub" id="learn-sub">Six lessons. Three questions each. <span id="streak-label"></span></p>
+    </section>
+
+    <ol class="lesson-list" id="lesson-progress">
+      {% for lesson in lessons %}
+      <li class="lesson-card">
+        <a class="lesson-card__link" href="{% url 'lesson-detail' lesson.slug %}">
+          <span class="lesson-card__num">{{ lesson.order|stringformat:"02d" }}</span>
+          <span class="lesson-card__body">
+            <span class="lesson-card__title">{{ lesson.title }}</span>
+            <span class="lesson-card__summary">{{ lesson.summary }}</span>
+          </span>
+          <span class="lesson-card__cta">Start →</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+  </main>
+
+  <footer class="footer">
+    <p>FISCUS — learn money by using it.</p>
+    <p class="footer__meta">Django · Supabase</p>
+  </footer>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4"></script>
+  <script src="{% static 'learn/js/learn.js' %}" defer></script>
+</body>
+</html>
