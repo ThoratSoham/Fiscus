@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.auth import SupabaseUser
-from invest.models import Holding, VirtualPortfolio
+from invest.models import Holding, Instrument, VirtualPortfolio
 from learn.models import Lesson, QuizAttempt
 from track.models import Budget, Category
 from .models import Profile
@@ -94,7 +94,13 @@ class BadgeTests(TestCase):
 
     def test_first_trade_badge(self):
         portfolio = VirtualPortfolio.objects.create(user_id=self.user_id)
-        Holding.objects.create(portfolio=portfolio, symbol="RELIANCE", quantity=10, avg_price=2500)
+        instrument, _ = Instrument.objects.get_or_create(
+            yahoo_symbol="RELIANCE.NS",
+            defaults={"symbol": "RELIANCE", "name": "Reliance", "default_price": "2500"},
+        )
+        Holding.objects.create(
+            portfolio=portfolio, instrument=instrument, quantity=10, avg_price=2500
+        )
         self.assertEqual(self.profile.evaluate_badges(), ["First Trade"])
 
     def test_course_complete_badge(self):

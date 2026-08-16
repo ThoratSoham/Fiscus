@@ -8,4 +8,5 @@ urlpatterns = [
     path("", include("track.urls")),
     path("", include("learn.urls")),
     path("", include("streaks.urls")),
+    path("", include("invest.urls")),
 ]

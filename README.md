@@ -68,6 +68,21 @@ The landing page's "Sign in with Google" button calls `supabase.auth.signInWithO
 5. Smoke the loop on the live URL: sign up → log an expense → do a lesson → watch the streak and badges panel update.
 ```
 
+## Phase 6: Invest module (paper trading — step 1 of the trading engine)
+
+Follows the Phase 6 spec's internal build order; this first step covers **equity market orders on stocks + indices with a real price pipeline**. Limit/stop orders, short-selling, charts, leaderboard, and options come in later steps.
+
+- `invest/models.py` — `Instrument` (display symbol, kind index/stock, `yahoo_symbol`, seeded `default_price` fallback), `PriceSnapshot` (one row per fetch; newest per instrument is the live price), `VirtualPortfolio` (`starting_balance`/`current_balance` — custom starting capital, reset restores it), `Holding` (instrument FK, quantity, avg price), `Order` (side buy/sell, market type now; limit/stop_loss + pending status reserved).
+- `invest/prices.py` — market-data layer. **Verified empirically: NSE blocks server IPs (403); Yahoo's chart endpoint works with a browser User-Agent** and is the primary feed (prices may be ~15 min delayed — surfaced honestly in the UI). `latest_price()` serves the freshest snapshot within a 60s TTL and only hits the upstream on a cold cache; failures degrade to the last snapshot, then to `default_price`. `refresh_all()` fans out with a small thread pool.
+- `manage.py fetch_prices` — refresh all snapshots manually (also called by the cron endpoint).
+- API: public `GET /api/invest/instruments/` (price + as-of + stale flag + market-open status, lazy-refreshed); `GET /api/invest/portfolio/` (cash, invested, portfolio value, return %, holdings with P&L, recent orders); `POST /api/invest/orders/` (market buy/sell at the latest snapshot — debits/credits cash, averages into the holding, rejects oversell/insufficient cash); `POST /api/invest/reset/`. All JWT-protected except instruments.
+- **First Trade badge**: a user's first buy creates a holding, which trips `Profile.evaluate_badges()` — the unlock returns as `unlocked_badges` and toasts on the Invest page.
+- `POST /api/cron/prices/` — CRON_SECRET-guarded refresh, wired into `vercel.json`. **Vercel Hobby supports one daily cron total** — the streaks cron takes the slot; price freshness on Hobby comes from the lazy page-load refresh, so the cron is a nice-to-have, not a dependency.
+- UI: `/invest/` (brutalist, same language as Track/Learn) — market status line (open/closed, IST), portfolio summary chips, market order form with a cost estimate, holdings table with green/red P&L, live price table, recent orders, reset. 401 → Supabase refresh once → redirect to `/?auth=1`, logout in the top bar.
+- 16 invest tests (54 total): order fill math, insufficient cash, avg-price math, oversell, portfolio aggregation, ownership isolation, reset, First Trade unlock, public instruments, cron auth.
+
+Setup: `manage.py migrate` (schema + seeded instruments), `manage.py fetch_prices` (warm the first snapshots). No Supabase/RLS changes needed — Django owns the data path; RLS for these tables can be added like `supabase/rls_policies.sql` if you ever expose them via PostgREST.
+
 ## Stack
 
 - **Backend**: Django 6 (Python 3.12+), `fiscus/` project package + `core` app

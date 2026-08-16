@@ -13,6 +13,7 @@ env/
 # ---- Django ----
 staticfiles/
 db.sqlite3
+*.db
 media/
 
 # ---- Dev artifacts ----
