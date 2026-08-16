@@ -51,6 +51,18 @@
       body: opts.body || undefined
     });
     if (res.status === 401) {
+      /* token may be expired — refresh once, then retry */
+      var refreshed = await client.auth.refreshSession().then(function (r) {
+        if (r.data && r.data.session) {
+          state.token = r.data.session.access_token;
+          return true;
+        }
+        return false;
+      }).catch(function () { return false; });
+      if (refreshed && !opts._retried) {
+        opts._retried = true;
+        return api(path, opts);
+      }
       redirectToLogin();
       throw new Error("unauthorized");
     }
@@ -77,13 +89,54 @@
       api("/api/dashboard/"),
       api("/api/expenses/"),
       api("/api/budgets/"),
-      api("/api/categories/")
+      api("/api/categories/"),
+      api("/api/profile/")
     ]);
     state.dashboard = results[0];
     state.expenses = results[1];
     state.budgets = results[2];
     state.categories = results[3];
+    state.profile = results[4];
     render();
+  }
+
+  function showToasts(items) {
+    if (!items || !items.length) return;
+    var wrap = document.getElementById("toast-wrap");
+    if (!wrap) return;
+    wrap.hidden = false;
+    items.forEach(function (name) {
+      var el = document.createElement("div");
+      el.className = "toast toast--badge";
+      el.textContent = "Badge unlocked: " + name;
+      wrap.appendChild(el);
+      setTimeout(function () {
+        el.remove();
+        if (!wrap.children.length) wrap.hidden = true;
+      }, 5000);
+    });
+  }
+
+  function renderProfile() {
+    var p = state.profile;
+    if (!p) return;
+    document.getElementById("streak-value").textContent =
+      p.streak_count + " day" + (p.streak_count === 1 ? "" : "s");
+    var badges = [
+      { key: "7-Day Streak", icon: "🔥" },
+      { key: "Budget Keeper", icon: "📒" },
+      { key: "First Trade", icon: "📈" },
+      { key: "Course Complete", icon: "🎓" }
+    ];
+    document.getElementById("badge-grid").innerHTML = badges.map(function (b) {
+      var unlocked = p.badges && p.badges[b.key];
+      return (
+        '<div class="badge-card ' + (unlocked ? "badge-card--unlocked" : "badge-card--locked") + '">' +
+          '<span class="badge-card__icon">' + b.icon + "</span>" +
+          "<span>" + esc(b.key) + "</span>" +
+        "</div>"
+      );
+    }).join("");
   }
 
   function render() {
@@ -92,6 +145,7 @@
     renderCharts();
     renderExpenses();
     renderSelects();
+    renderProfile();
   }
 
   function renderSummary() {
@@ -199,24 +253,18 @@
         "</tbody></table>";
   }
 
+  function categoryOptions(kind) {
+    return state.categories
+      .filter(function (c) { return c.kind === kind || c.kind === "both"; })
+      .map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + "</option>"; })
+      .join("");
+  }
+
   function renderSelects() {
     var expenseCat = document.getElementById("expense-category");
     var budgetCat = document.getElementById("budget-category");
-    var expenseOptions = state.categories
-      .filter(function (c) { return c.kind === "expense" || c.kind === "both"; })
-      .map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + "</option>"; })
-      .join("");
-    var incomeOptions = state.categories
-      .filter(function (c) { return c.kind === "income" || c.kind === "both"; })
-      .map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + "</option>"; })
-      .join("");
-    expenseCat.innerHTML = expenseOptions || '<option value="">—</option>';
-    budgetCat.innerHTML = expenseOptions;
-
-    /* category select follows the type toggle */
-    document.getElementById("expense-type").addEventListener("change", function (e) {
-      expenseCat.innerHTML = e.target.value === "income" ? incomeOptions : expenseOptions;
-    });
+    expenseCat.innerHTML = categoryOptions("expense") || '<option value="">—</option>';
+    budgetCat.innerHTML = categoryOptions("expense");
   }
 
   /* ---- expense form ---- */
@@ -281,14 +329,16 @@
     var limit = document.getElementById("budget-limit").value;
     if (!categoryId || !limit) return;
     try {
+      var res = null;
       var existing = state.budgets.find(function (b) { return String(b.category_id) === String(categoryId); });
       if (existing) {
-        await api("/api/budgets/" + existing.id + "/", { method: "PATCH", body: JSON.stringify({ monthly_limit: limit }) });
+        res = await api("/api/budgets/" + existing.id + "/", { method: "PATCH", body: JSON.stringify({ monthly_limit: limit }) });
       } else {
-        await api("/api/budgets/", { method: "POST", body: JSON.stringify({ category: categoryId, monthly_limit: limit }) });
+        res = await api("/api/budgets/", { method: "POST", body: JSON.stringify({ category: categoryId, monthly_limit: limit }) });
       }
       document.getElementById("budget-limit").value = "";
       await loadAll();
+      if (res && res.unlocked_badges && res.unlocked_badges.length) showToasts(res.unlocked_badges);
     } catch (err) {
       alert(err.message);
     }
@@ -301,6 +351,13 @@
     document.getElementById("budget-form").addEventListener("submit", submitBudget);
     document.getElementById("logout-btn").addEventListener("click", function () {
       client.auth.signOut().then(function () { window.location.href = "/"; });
+    });
+
+    /* category select follows the type toggle (bound once) */
+    document.getElementById("expense-type").addEventListener("change", function (e) {
+      document.getElementById("expense-category").innerHTML =
+        categoryOptions(e.target.value === "income" ? "income" : "expense") ||
+        '<option value="">—</option>';
     });
 
     document.getElementById("expense-list").addEventListener("click", function (e) {

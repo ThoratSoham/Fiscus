@@ -22,6 +22,7 @@
       <a href="/dashboard/">Track</a>
       <a href="/admin/">Admin</a>
     </nav>
+    <button class="btn btn--black btn--sm" type="button" id="logout-btn">Log out</button>
   </header>
 
   <main class="learn learn--detail">
@@ -57,5 +58,6 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.45.4"></script>
   <script src="{% static 'learn/js/learn.js' %}" defer></script>
+  <div id="toast-wrap" class="toast-wrap" hidden></div>
 </body>
 </html>

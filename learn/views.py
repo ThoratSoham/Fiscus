@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.response import Response
 
 from core.auth import SupabaseJWTAuthentication
+from streaks.models import Profile
 from .models import Lesson, QuizAttempt
 
 AUTH = [SupabaseJWTAuthentication]
@@ -63,8 +64,16 @@ def submit_quiz(request, pk):
     streak = QuizAttempt.record_attempt(
         user_id=request.user.id, lesson=lesson, score=score
     )
+    profile = Profile.get_or_create_for(request.user.id)
+    unlocked = profile.evaluate_badges()
     return Response(
-        {"score": score, "correct": correct, "total": len(questions), "streak": streak}
+        {
+            "score": score,
+            "correct": correct,
+            "total": len(questions),
+            "streak": streak,
+            "unlocked_badges": unlocked,
+        }
     )
 
 

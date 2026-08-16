@@ -56,25 +56,12 @@ class QuizAttempt(models.Model):
 
     @classmethod
     def record_attempt(cls, user_id, lesson, score, at=None):
-        """Create an attempt and return the user's updated day-based streak.
+        """Create an attempt; the day-based streak comes from the Profile."""
+        from streaks.models import Profile
 
-        Streak rule: consecutive calendar days with at least one completed
-        quiz. A same-day repeat keeps the streak, the next day increments
-        it, and a missed day resets it to 1.
-        """
         at = at or timezone.now()
-        today = timezone.localdate(at)
-        last = cls.objects.filter(user_id=user_id).order_by("-created_at").first()
-        if last is None:
-            streak = 1
-        else:
-            gap = (today - last.created_at.date()).days
-            if gap <= 0:
-                streak = max(1, last.streak_count)
-            elif gap == 1:
-                streak = last.streak_count + 1
-            else:
-                streak = 1
+        profile = Profile.get_or_create_for(user_id)
+        streak = profile.record_activity(at=at)
         cls.objects.create(
             user_id=user_id, lesson=lesson, score=score, streak_count=streak
         )

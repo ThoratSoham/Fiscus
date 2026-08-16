@@ -71,6 +71,13 @@
       </form>
     </section>
 
+    <!-- streaks & badges -->
+    <section class="panel panel--wide" id="streaks-panel">
+      <h2 class="panel__title">Streaks &amp; Badges</h2>
+      <p class="streak-line">Current streak: <strong id="streak-value">—</strong></p>
+      <div class="badge-grid" id="badge-grid"></div>
+    </section>
+
     <!-- budgets -->
     <section class="panel">
       <h2 class="panel__title">Monthly budgets</h2>
@@ -108,5 +115,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="{% static 'track/js/dashboard.js' %}" defer></script>
+  <div id="toast-wrap" class="toast-wrap" hidden></div>
 </body>
 </html>
