@@ -1,0 +1,131 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FISCUS — Learn money by using it.</title>
+  <meta name="description" content="Fiscus is a practice-first finance app: learn money by using it.">
+  <link rel="stylesheet" href="{% static 'core/css/brutalist.css' %}">
+  {{ config|json_script:"fiscus-config" }}
+</head>
+<body>
+
+  <!-- Fixed full-page grid, brutalist slide-style -->
+  <div class="page-grid" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="topbar__brand" href="/">FISCUS</a>
+    <nav class="topbar__nav" aria-label="Primary">
+      <a href="#stats">Why</a>
+      <a href="#auth">Join</a>
+      <a href="/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="hero__copy">
+        <p class="hero__kicker">A practice-first money app</p>
+        <h1 class="hero__title">FISCUS</h1>
+        <p class="hero__tagline">Learn money by using it.</p>
+        <div class="hero__cta">
+          <a class="btn btn--blue" href="#auth">Start now — it's free</a>
+          <a class="btn" href="#stats">How it works</a>
+        </div>
+      </div>
+
+      <div class="hero__stage">
+        <canvas id="hero-canvas" aria-label="3D brutalist clock tower — drag to orbit"></canvas>
+        <div class="hero__poster" id="hero-poster" hidden>
+          <svg class="poster-svg" viewBox="0 0 220 300" role="img" aria-label="Brutalist clock tower">
+            <!-- spire -->
+            <polygon points="110,6 134,54 86,54" fill="#0b0b0d"/>
+            <!-- clock stage -->
+            <rect x="56" y="54" width="108" height="88" fill="#0b0b0d"/>
+            <!-- clock face -->
+            <rect x="74" y="72" width="72" height="72" fill="#0038ff" stroke="#ffffff" stroke-width="5"/>
+            <!-- hands -->
+            <rect x="106" y="86" width="8" height="34" fill="#ffffff"/>
+            <rect x="108" y="106" width="26" height="8" fill="#ffffff"/>
+            <!-- tower shaft -->
+            <rect x="74" y="142" width="72" height="112" fill="#ffffff" stroke="#0b0b0d" stroke-width="6"/>
+            <!-- plinth -->
+            <rect x="40" y="254" width="140" height="40" fill="#0038ff" stroke="#0b0b0d" stroke-width="6"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ STATS ============ -->
+    <section class="stats" id="stats">
+      <h2 class="section-title">The money gap is real.</h2>
+      <div class="stats__grid">
+        <article class="stat-card">
+          <p class="stat-card__num">91%</p>
+          <p class="stat-card__label">of adults wish school had actually taught them how to manage money</p>
+        </article>
+        <article class="stat-card stat-card--blue">
+          <p class="stat-card__num">43%</p>
+          <p class="stat-card__label">of Americans couldn't cover a $1,000 emergency without borrowing</p>
+        </article>
+        <article class="stat-card">
+          <p class="stat-card__num">75%+</p>
+          <p class="stat-card__label">of financial habits are set by age 7 — the rest come from doing, not reading</p>
+        </article>
+      </div>
+      <!-- Stats are placeholders from the deck; swap numbers/labels freely. -->
+    </section>
+
+    <!-- ============ AUTH ============ -->
+    <section class="auth" id="auth">
+      <div class="auth__panel">
+        <h2 class="section-title">Open a Fiscus account.</h2>
+        <p class="auth__note">Zero dollars down. Just an email and a password — or a magic link.</p>
+
+        <form class="auth__form" id="auth-form" novalidate>
+          <label class="field">
+            <span class="field__label">Email</span>
+            <input class="field__input" type="email" name="email" id="auth-email" autocomplete="email"
+                   required placeholder="you@example.com">
+          </label>
+          <label class="field">
+            <span class="field__label">Password</span>
+            <input class="field__input" type="password" name="password" id="auth-password"
+                   required minlength="6" placeholder="min 6 characters">
+          </label>
+          <div class="auth__actions">
+            <button class="btn btn--blue" type="submit" data-action="signup">Sign up</button>
+            <button class="btn" type="submit" data-action="login">Log in</button>
+            <button class="btn btn--black" type="submit" data-action="magic">Send magic link</button>
+            <button class="btn" type="button" id="auth-logout" hidden>Log out</button>
+          </div>
+        </form>
+
+        <p class="auth__status" id="auth-status" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>FISCUS — learn money by using it.</p>
+    <p class="footer__meta">Django · Supabase · Three.js</p>
+  </footer>
+
+  <!-- Supabase client (UMD build exposes window.supabase) -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4"></script>
+
+  <!-- Three.js via importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="{% static 'core/js/hero3d.js' %}"></script>
+  <script src="{% static 'core/js/landing.js' %}" defer></script>
+</body>
+</html>

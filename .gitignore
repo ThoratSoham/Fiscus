@@ -15,6 +15,9 @@ staticfiles/
 db.sqlite3
 media/
 
+# ---- Dev artifacts ----
+preview.html
+
 # ---- Vercel ----
 .vercel/
 
