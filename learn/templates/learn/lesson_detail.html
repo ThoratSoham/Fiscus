@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ lesson.title }} — FISCUS Learn</title>
+  <link rel="stylesheet" href="{% static 'core/css/brutalist.css' %}">
+  <link rel="stylesheet" href="{% static 'learn/css/learn.css' %}">
+  {{ config|json_script:"fiscus-config" }}
+  {{ lesson.quiz_questions|json_script:"quiz-data" }}
+</head>
+<body>
+
+  <div class="page-grid" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="topbar__brand" href="/">FISCUS</a>
+    <nav class="topbar__nav" aria-label="Primary">
+      <a href="/">Landing</a>
+      <a href="/learn/">Learn</a>
+      <a href="/dashboard/">Track</a>
+      <a href="/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <main class="learn learn--detail">
+    <a class="learn__back" href="{% url 'lesson-list' %}">← All lessons</a>
+
+    <article class="lesson">
+      <p class="lesson__kicker">Lesson {{ lesson.order }} of 6</p>
+      <h1 class="lesson__title">{{ lesson.title }}</h1>
+      <div class="lesson__content">{{ lesson.content|safe }}</div>
+    </article>
+
+    <section class="quiz" id="quiz-root" data-lesson-id="{{ lesson.id }}" data-slug="{{ lesson.slug }}">
+      <h2 class="panel__title">Quiz — answer all three</h2>
+      <div id="quiz-questions" class="quiz__questions"></div>
+      <div class="quiz__result" id="quiz-result" hidden></div>
+    </section>
+
+    {% if next_lesson %}
+    <nav class="learn__next">
+      <a class="btn btn--blue" href="{% url 'lesson-detail' next_lesson.slug %}">Next: {{ next_lesson.title }} →</a>
+    </nav>
+    {% else %}
+    <nav class="learn__next">
+      <a class="btn" href="{% url 'lesson-list' %}">All lessons complete — back to list</a>
+    </nav>
+    {% endif %}
+  </main>
+
+  <footer class="footer">
+    <p>FISCUS — learn money by using it.</p>
+    <p class="footer__meta">Django · Supabase</p>
+  </footer>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4"></script>
+  <script src="{% static 'learn/js/learn.js' %}" defer></script>
+</body>
+</html>
