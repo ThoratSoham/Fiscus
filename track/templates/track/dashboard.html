@@ -1,0 +1,111 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FISCUS — Track</title>
+  <link rel="stylesheet" href="{% static 'core/css/brutalist.css' %}">
+  <link rel="stylesheet" href="{% static 'track/css/dashboard.css' %}">
+  {{ config|json_script:"fiscus-config" }}
+</head>
+<body>
+
+  <div class="page-grid" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="topbar__brand" href="/">FISCUS</a>
+    <nav class="topbar__nav" aria-label="Primary">
+      <a href="/">Landing</a>
+      <a href="/dashboard/" class="is-active">Track</a>
+      <a href="/admin/">Admin</a>
+    </nav>
+    <button class="btn btn--black btn--sm" type="button" id="logout-btn">Log out</button>
+  </header>
+
+  <main class="track">
+    <section class="track__head">
+      <h1 class="section-title">Track</h1>
+      <p class="track__sub" id="month-label">Loading…</p>
+    </section>
+
+    <!-- summary chips -->
+    <section class="chips" id="summary-chips">
+      <div class="chip"><span class="chip__label">Spent this month</span><span class="chip__value" id="chip-spent">—</span></div>
+      <div class="chip chip--blue"><span class="chip__label">Income this month</span><span class="chip__value" id="chip-income">—</span></div>
+      <div class="chip chip--black"><span class="chip__label">Net</span><span class="chip__value" id="chip-net">—</span></div>
+    </section>
+
+    <!-- add / edit expense -->
+    <section class="panel">
+      <h2 class="panel__title" id="expense-panel-title">Add entry</h2>
+      <form id="expense-form" class="grid-form" novalidate>
+        <label class="field">
+          <span class="field__label">Type</span>
+          <select class="field__input" id="expense-type">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Amount (₹)</span>
+          <input class="field__input" type="number" step="0.01" min="0.01" id="expense-amount" required placeholder="0.00">
+        </label>
+        <label class="field">
+          <span class="field__label">Category</span>
+          <select class="field__input" id="expense-category"></select>
+        </label>
+        <label class="field">
+          <span class="field__label">Date</span>
+          <input class="field__input" type="date" id="expense-date" required>
+        </label>
+        <label class="field field--wide">
+          <span class="field__label">Note</span>
+          <input class="field__input" type="text" id="expense-note" placeholder="optional">
+        </label>
+        <div class="panel__actions">
+          <button class="btn btn--blue" type="submit" id="expense-submit">Add</button>
+          <button class="btn" type="button" id="expense-cancel" hidden>Cancel edit</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- budgets -->
+    <section class="panel">
+      <h2 class="panel__title">Monthly budgets</h2>
+      <div id="budget-list" class="budget-list"></div>
+      <form id="budget-form" class="budget-form" novalidate>
+        <select class="field__input" id="budget-category" aria-label="Budget category"></select>
+        <input class="field__input" type="number" step="0.01" min="0.01" id="budget-limit"
+               placeholder="Monthly limit ₹" aria-label="Monthly limit" required>
+        <button class="btn btn--blue btn--sm" type="submit">Set budget</button>
+      </form>
+    </section>
+
+    <!-- charts -->
+    <section class="panel">
+      <h2 class="panel__title">Spend by category</h2>
+      <div class="chart-wrap"><canvas id="pie-chart" aria-label="Pie chart of spend by category"></canvas></div>
+    </section>
+    <section class="panel">
+      <h2 class="panel__title">Monthly trend</h2>
+      <div class="chart-wrap"><canvas id="bar-chart" aria-label="Bar chart of monthly spend"></canvas></div>
+    </section>
+
+    <!-- activity -->
+    <section class="panel panel--wide">
+      <h2 class="panel__title">Recent activity</h2>
+      <div id="expense-list" class="expense-list"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>FISCUS — learn money by using it.</p>
+    <p class="footer__meta">Django · Supabase · Chart.js</p>
+  </footer>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="{% static 'track/js/dashboard.js' %}" defer></script>
+</body>
+</html>

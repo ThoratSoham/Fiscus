@@ -30,6 +30,7 @@
   var passwordInput = document.getElementById("auth-password");
   var statusEl = document.getElementById("auth-status");
   var logoutBtn = document.getElementById("auth-logout");
+  var dashboardLink = document.getElementById("auth-dashboard");
 
   function setStatus(msg, tone) {
     statusEl.textContent = msg || "";
@@ -50,9 +51,11 @@
     if (user) {
       setStatus("Logged in as " + user.email, "ok");
       logoutBtn.hidden = false;
+      if (dashboardLink) dashboardLink.hidden = false;
     } else {
       setStatus("", "");
       logoutBtn.hidden = true;
+      if (dashboardLink) dashboardLink.hidden = true;
     }
   }
 
@@ -74,6 +77,12 @@
       else handleUser(null);
     });
   });
+
+  /* Deep link from the dashboard: scroll straight to the auth form. */
+  if (new URLSearchParams(window.location.search).has("auth")) {
+    var target = document.getElementById("auth");
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
