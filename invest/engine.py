@@ -116,6 +116,35 @@ def _walk_log(instrument_id, seed, tick, volatility, drift):
     return total
 
 
+def price_series(instrument, seed, from_tick, to_tick):
+    """Deterministic list of Decimal prices for ticks [from_tick, to_tick]
+    inclusive, events included. Used by the lazy limit/stop crossing check
+    (spec 6.4): the path between placement and now is walked once, cheaply,
+    instead of running any background job.
+    """
+    if to_tick < from_tick:
+        return []
+    events = event_schedule(seed)
+
+    def shock(k):
+        return _shock_log(seed, instrument.symbol, k, events)
+
+    start = max(from_tick - 1, 0)
+    prev_log = _walk_log(instrument.id, seed, start, instrument.volatility, instrument.drift) + shock(start)
+    prices = []
+    for k in range(from_tick, to_tick + 1):
+        if k >= 1:
+            increment = (
+                instrument.drift * TICK_DAYS
+                + instrument.volatility * (2 * _rand(seed, instrument.id, k - 1) - 1) * math.sqrt(TICK_DAYS)
+            )
+            prev_log += increment + (shock(k) - shock(k - 1))
+        prices.append(
+            Decimal(str(float(instrument.base_price) * math.exp(prev_log))).quantize(Decimal("0.01"))
+        )
+    return prices
+
+
 def price_at(instrument, seed, at=None):
     """Deterministic simulated price for (instrument, seed, time).
 

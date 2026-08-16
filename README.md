@@ -82,7 +82,11 @@ Per the updated Phase 6 spec: **no external market-data API at all**. Every pric
 
 Setup: `manage.py migrate` (schema + seeded simulated roster). No Supabase/RLS changes, no env vars, no cron — the market runs itself.
 
-Next per the spec's build order: limit/stop-loss orders (lazy path-crossing), short-selling with margin, charts (OHLC is a natural byproduct of the 15-min buckets), leaderboard + social feed, options (Black-Scholes off the simulated price).
+**Limit + stop-loss orders (spec 6.4)** — orders stay **pending** and fill **lazily**: because every price is a computable function of (seed, instrument, time), the next portfolio/instruments/order-list read walks the deterministic path between placement and now (`invest/trading.py::check_pending_orders` → `engine.price_series`) and fills at the first tick that crossed the trigger. Buy-limit fills below the trigger, sell-limit above, stop-loss below. No polling, no background job. Pending orders can be cancelled (`POST /api/invest/orders/<id>/cancel/`); fills that can't be satisfied (insufficient cash/holdings) auto-cancel with a note. The UI gained an order-type selector + trigger-price field and a pending-orders panel; the 5s ticker toasts fills the moment they execute.
+
+Also in this step: `core/auth.py` accepts **ES256** tokens and uses a 60s leeway for clock skew — Supabase's signing key is EC now, and serverless clocks can lag by a few seconds, so without both fixes valid logins would 401.
+
+Next per the spec's build order: short-selling with margin, scripted-event tuning, charts + position visualizations (OHLC is a natural byproduct of the 15-min buckets), leaderboard + social feed, options (Black-Scholes off the simulated price).
 
 ## Stack
 

@@ -140,7 +140,10 @@ class Order(models.Model):
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.FILLED
     )
-    price = models.DecimalField(max_digits=14, decimal_places=4)  # fill price
+    # Limit/stop orders: the price that must be crossed before the order
+    # fills (buy limit below / sell limit above / stop-loss below).
+    trigger_price = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    price = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)  # fill price
     note = models.CharField(max_length=120, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     filled_at = models.DateTimeField(null=True, blank=True)
