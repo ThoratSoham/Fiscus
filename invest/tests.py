@@ -208,6 +208,30 @@ class InvestApiTests(TestCase):
         self.assertNotEqual(portfolio.seed, before_seed)  # fresh private market
         self.assertTrue(res.data["seed_changed"])
 
+    def test_reset_with_custom_starting_balance(self):
+        self._buy(self.orbit, 5)
+        res = self.client.post(
+            "/api/invest/reset/", {"starting_balance": "50000"}, format="json"
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(Decimal(res.data["starting_balance"]), Decimal("50000.00"))
+        self.assertEqual(Decimal(res.data["cash"]), Decimal("50000.00"))
+        self.assertEqual(
+            VirtualPortfolio.objects.get(user_id=self.user_a).starting_balance,
+            Decimal("50000.00"),
+        )
+
+    def test_reset_rejects_invalid_starting_balance(self):
+        for bad in ("-5", "0", "50", "abc", "99999999999"):
+            res = self.client.post(
+                "/api/invest/reset/", {"starting_balance": bad}, format="json"
+            )
+            self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST, bad)
+        self.assertEqual(
+            VirtualPortfolio.objects.get(user_id=self.user_a).starting_balance,
+            Decimal("100000.00"),  # untouched
+        )
+
     def test_first_trade_badge_unlocks(self):
         res = self._buy(self.orbit, 1)
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)

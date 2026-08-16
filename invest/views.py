@@ -245,9 +245,31 @@ def place_order(request):
 @authentication_classes(AUTH)
 @permission_classes(PERM)
 def reset_portfolio(request):
-    """Reset: wipe positions + orders, restore the starting balance, and
-    re-roll the market seed — a genuinely fresh private market."""
+    """Reset: wipe positions + orders, restore (or set) the starting balance,
+    and re-roll the market seed — a genuinely fresh private market.
+
+    Accepts an optional `starting_balance` (spec 6.7: chosen at creation or
+    on reset). Default stays ₹1,00,000 when omitted.
+    """
     portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
+
+    starting = request.data.get("starting_balance")
+    if starting is not None:
+        try:
+            starting = Decimal(str(starting))
+        except Exception:
+            return Response(
+                {"detail": "starting_balance must be a number."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if starting < Decimal("100") or starting > Decimal("10000000"):
+            return Response(
+                {"detail": "Starting balance must be between ₹100 and ₹10,000,000."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        portfolio.starting_balance = starting
+        portfolio.save(update_fields=["starting_balance", "updated_at"])
+
     old_seed = portfolio.seed
     portfolio.reset()
     return Response(

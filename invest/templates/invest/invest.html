@@ -115,8 +115,14 @@
     <!-- danger zone -->
     <section class="panel">
       <h2 class="panel__title">Reset portfolio</h2>
-      <p class="panel__note">Wipes all holdings and orders, restores your starting balance.</p>
-      <button class="btn" type="button" id="reset-btn">Reset portfolio</button>
+      <p class="panel__note">Wipes all holdings and orders, re-rolls your private market, and restores your starting balance. You can also set a new starting balance here — this is where the custom capital from the spec lives.</p>
+      <label class="field">
+        <span class="field__label">Starting balance (₹)</span>
+        <input class="field__input" type="number" step="0.01" min="100" max="10000000" id="reset-balance" placeholder="100000.00">
+      </label>
+      <div class="panel__actions" style="margin-top:12px">
+        <button class="btn" type="button" id="reset-btn">Reset portfolio</button>
+      </div>
     </section>
   </main>
 

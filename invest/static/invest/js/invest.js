@@ -256,6 +256,10 @@
     var ret = document.getElementById("chip-return");
     ret.textContent = signedMoney(p.return_amount) + " (" + signedMoney(p.return_pct) + "%)";
     ret.style.color = Number(p.return_amount) < 0 ? PALETTE.red : (Number(p.return_amount) > 0 ? PALETTE.green : "inherit");
+    var balanceInput = document.getElementById("reset-balance");
+    if (balanceInput && document.activeElement !== balanceInput) {
+      balanceInput.value = Number(p.starting_balance).toFixed(2);
+    }
   }
 
   function renderHoldings() {
@@ -439,9 +443,14 @@
       alert("Reset is disabled in this static preview.");
       return;
     }
-    if (!window.confirm("Reset your portfolio? This wipes all holdings and orders, restores your starting balance, and re-rolls your private market.")) return;
+    var startingBalance = document.getElementById("reset-balance").value;
+    if (!startingBalance || Number(startingBalance) < 100) {
+      alert("Enter a starting balance of at least ₹100.");
+      return;
+    }
+    if (!window.confirm("Reset your portfolio? This wipes all holdings and orders, re-rolls your private market, and restores your starting balance" + (state.portfolio && Number(startingBalance) !== Number(state.portfolio.starting_balance) ? " (new starting balance ₹" + Number(startingBalance).toLocaleString("en-IN") + ")" : "") + ".")) return;
     try {
-      await api("/api/invest/reset/", { method: "POST" });
+      await api("/api/invest/reset/", { method: "POST", body: JSON.stringify({ starting_balance: startingBalance }) });
       await loadAll();
     } catch (err) {
       alert(err.message);
