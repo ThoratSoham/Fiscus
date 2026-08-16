@@ -15,6 +15,23 @@ Personal finance app.
 
 Stat numbers/labels are placeholders — swap in the deck's figures in `index.html`.
 
+## Phase 3: Track module (expenses + budgets)
+
+- `track/models.py` — `Category` (global reference data, seeded via migration), `Expense` (amount, category, type income/expense, date, note, user_id), `Budget` (category, monthly_limit, spent, user_id) with a unique per-user/category constraint. `user_id` is the Supabase auth uid (a UUID column, not a Django user).
+- `track/auth.py` — `SupabaseJWTAuthentication`, a DRF auth backend that reads `Authorization: Bearer <jwt>`, verifies the RS256 signature against Supabase's JWKS (`<SUPABASE_URL>/auth/v1/.well-known/jwks.json`, cached), checks `exp`/`aud`, and attaches a `SupabaseUser(id, email)` to the request.
+- `track/views.py` — DRF viewsets: `GET/POST/PATCH/DELETE /api/expenses/` and `/api/budgets/`, public `GET /api/categories/`, and `GET /api/dashboard/` (spend by category, budget progress with over-budget flags, 6-month trend). Every expense mutation recomputes `Budget.spent` from the current month's expenses, so bars react live.
+- `track/templates/track/dashboard.html` + `dashboard.js` — logged-in page at `/dashboard/`: add/edit/delete entries, budget bars (blue under budget, red over), Chart.js pie (spend by category) + bar (monthly trend). The browser sends the Supabase access token from the session; a 401 redirects to the landing auth form.
+- `supabase/rls_policies.sql` + `scripts/apply_rls.py` — RLS policies so Expense/Budget rows are only visible to their owning user (defense in depth for direct PostgREST access; Django connects with the privileged postgres role and enforces ownership itself).
+
+### Track module — setup (already done for the live project)
+
+```bash
+.venv/Scripts/python.exe manage.py migrate          # create tables in Supabase
+.venv/Scripts/python.exe scripts/apply_rls.py        # enable RLS + policies
+# tests (JWT auth + API) — use a local DB so the runner doesn't touch Supabase
+DATABASE_URL=sqlite:///test.db .venv/Scripts/python.exe manage.py test track
+```
+
 ## Stack
 
 - **Backend**: Django 6 (Python 3.12+), `fiscus/` project package + `core` app

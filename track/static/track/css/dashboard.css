@@ -1,0 +1,263 @@
+/* ==========================================================================
+   FISCUS Track dashboard — extends the brutalist design system
+   ========================================================================== */
+
+.track {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1rem, 3vw, 1.8rem);
+  padding: clamp(2rem, 5vw, 4rem) clamp(1rem, 4vw, 3rem);
+}
+
+.track__head {
+  grid-column: 1 / -1;
+}
+
+.track__head .section-title {
+  margin-bottom: 0.4rem;
+}
+
+.track__sub {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---- summary chips ---- */
+.chips {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(1rem, 3vw, 1.8rem);
+}
+
+.chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.2rem;
+  background: var(--white);
+  border: var(--border-w) solid var(--black);
+  box-shadow: var(--shadow-sm);
+}
+
+.chip--blue {
+  background: var(--blue);
+  color: var(--white);
+}
+
+.chip--black {
+  background: var(--black);
+  color: var(--white);
+}
+
+.chip__label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.chip__value {
+  font-family: var(--font-mono);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 900;
+}
+
+/* ---- panels ---- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: clamp(1.2rem, 3vw, 1.8rem);
+  background: var(--white);
+  border: var(--border-w) solid var(--black);
+  box-shadow: var(--shadow);
+}
+
+.panel--wide {
+  grid-column: 1 / -1;
+}
+
+.panel__title {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panel__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+/* ---- forms ---- */
+.grid-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.field--wide {
+  grid-column: 1 / -1;
+}
+
+.budget-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.budget-form .field__input {
+  flex: 1;
+  min-width: 9rem;
+}
+
+/* ---- budget bars ---- */
+.budget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.budget-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.budget-row__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.budget-row__name {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bar {
+  height: 1.4rem;
+  background: var(--white);
+  border: var(--border-w) solid var(--black);
+  box-shadow: inset 3px 3px 0 0 rgba(11, 11, 13, 0.08);
+}
+
+.bar__fill {
+  height: 100%;
+  background: var(--blue); /* under budget = blue */
+  border-right: 2px solid var(--black);
+}
+
+.bar__fill--over {
+  background: #e00000; /* over budget = red */
+}
+
+.budget-row__alert {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e00000;
+}
+
+/* ---- expense table ---- */
+.expense-list {
+  overflow-x: auto;
+}
+
+.expense-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.expense-table th,
+.expense-table td {
+  padding: 0.6rem 0.7rem;
+  border-bottom: 2px solid var(--black);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.expense-table th {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--black);
+  color: var(--white);
+}
+
+.expense-table .num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.row-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 0.18rem 0.45rem;
+  border: 2px solid var(--black);
+}
+
+.badge--income {
+  background: var(--blue);
+  color: var(--white);
+}
+
+.badge--expense {
+  background: var(--white);
+  color: var(--black);
+}
+
+.empty {
+  font-family: var(--font-mono);
+  color: #6b6b75;
+}
+
+/* ---- charts ---- */
+.chart-wrap {
+  position: relative;
+  min-height: 240px;
+}
+
+/* ---- responsive ---- */
+@media (max-width: 860px) {
+  .track {
+    grid-template-columns: 1fr;
+  }
+
+  .chips {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-form {
+    grid-template-columns: 1fr;
+  }
+
+  .field--wide {
+    grid-column: auto;
+  }
+}
