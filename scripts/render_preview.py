@@ -99,10 +99,12 @@ INVEST_MOCK = """{
       {"instrument_id": 6, "symbol": "DUNE", "name": "Dune Metals", "quantity": "20", "avg_price": "610.0000", "last_price": "594.30", "invested": "12200.00", "current_value": "11886.00", "pnl": "-314.00", "pnl_pct": "-2.57", "stale": false}
     ],
     "recent_orders": [
-      {"id": 1, "instrument_symbol": "ORBIT", "side": "buy", "quantity": "10", "price": "480.0000", "created_at": "2026-08-16T10:02:00Z"},
-      {"id": 2, "instrument_symbol": "NIFTY-SIM", "side": "buy", "quantity": "0.5", "price": "24500.0000", "created_at": "2026-08-16T09:41:00Z"},
-      {"id": 3, "instrument_symbol": "PIXEL", "side": "buy", "quantity": "10", "price": "1450.0000", "created_at": "2026-08-15T12:20:00Z"},
-      {"id": 4, "instrument_symbol": "DUNE", "side": "buy", "quantity": "20", "price": "610.0000", "created_at": "2026-08-15T11:05:00Z"}
+      {"id": 1, "instrument_symbol": "ORBIT", "side": "buy", "quantity": "10", "order_type": "limit", "status": "pending", "trigger_price": "470.0000", "price": null, "created_at": "2026-08-16T10:05:00Z"},
+      {"id": 2, "instrument_symbol": "PIXEL", "side": "sell", "quantity": "10", "order_type": "stop_loss", "status": "pending", "trigger_price": "1380.0000", "price": null, "created_at": "2026-08-16T10:02:00Z"},
+      {"id": 3, "instrument_symbol": "ORBIT", "side": "buy", "quantity": "10", "order_type": "market", "status": "filled", "price": "480.0000", "created_at": "2026-08-16T09:41:00Z"},
+      {"id": 4, "instrument_symbol": "NIFTY-SIM", "side": "buy", "quantity": "0.5", "order_type": "market", "status": "filled", "price": "24500.0000", "created_at": "2026-08-16T09:20:00Z"},
+      {"id": 5, "instrument_symbol": "PIXEL", "side": "buy", "quantity": "10", "order_type": "market", "status": "filled", "price": "1450.0000", "created_at": "2026-08-15T12:20:00Z"},
+      {"id": 6, "instrument_symbol": "DUNE", "side": "buy", "quantity": "20", "order_type": "market", "status": "filled", "price": "610.0000", "created_at": "2026-08-15T11:05:00Z"}
     ]
   }
 }"""

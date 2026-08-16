@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 
 from core.auth import SupabaseUser
 from streaks.models import Profile
-from . import engine
+from . import engine, trading
 from .models import Holding, Instrument, Order, VirtualPortfolio
 
 SEED_A = 424242
@@ -252,3 +252,175 @@ class InvestApiTests(TestCase):
             format="json",
         )
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class LimitStopOrderTests(TestCase):
+    """Limit + stop-loss orders: lazy path-crossing fills (spec 6.4)."""
+
+    def setUp(self):
+        self.user_a = str(uuid.uuid4())
+        self.orbit = Instrument.objects.get(yahoo_symbol="SIM-04")
+        self.pixel = Instrument.objects.get(yahoo_symbol="SIM-11")
+        VirtualPortfolio.objects.create(
+            user_id=self.user_a, seed=SEED_A,
+            starting_balance=Decimal("100000.00"), current_balance=Decimal("100000.00"),
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=SupabaseUser(id=self.user_a))
+
+    def _place(self, instrument, side, order_type, quantity, trigger=None):
+        payload = {
+            "instrument_id": instrument.id, "side": side,
+            "order_type": order_type, "quantity": quantity,
+        }
+        if trigger is not None:
+            payload["trigger_price"] = str(trigger)
+        return self.client.post("/api/invest/orders/", payload, format="json")
+
+    def _market_buy(self, instrument, quantity=10):
+        return self._place(instrument, "buy", "market", quantity)
+
+    def _current_price(self, instrument):
+        return engine.price_at(instrument, SEED_A)
+
+    def _future_crossing(self, instrument, trigger, mode, max_ticks=8000):
+        """A future time at which the deterministic path first crosses the
+        trigger, plus the crossing price. Deterministic — the engine is a
+        pure function of time."""
+        from_tick = trading.tick_of(timezone.now())
+        prices = engine.price_series(instrument, SEED_A, from_tick, from_tick + max_ticks)
+        idx = trading.first_crossing(prices, trigger, mode)
+        if idx is None:
+            self.fail(f"path never crossed trigger {trigger} ({mode}) — adjust the test")
+        future = engine.EPOCH + timedelta(seconds=(from_tick + idx) * engine.TICK_SECONDS)
+        return future, prices[idx]
+
+    # -- immediate fills (already crossed at placement) --
+
+    def test_buy_limit_above_current_fills_immediately(self):
+        trigger = self._current_price(self.orbit) * 2
+        res = self._place(self.orbit, "buy", "limit", 10, trigger=trigger)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(res.data["order"]["status"], "filled")
+        fill = Decimal(res.data["order"]["price"])
+        portfolio = VirtualPortfolio.objects.get(user_id=self.user_a)
+        self.assertEqual(
+            portfolio.current_balance,
+            (Decimal("100000.00") - (fill * 10).quantize(Decimal("0.01"))),
+        )
+
+    def test_sell_limit_below_current_fills_immediately(self):
+        self._market_buy(self.orbit)
+        trigger = self._current_price(self.orbit) * Decimal("0.5")
+        res = self._place(self.orbit, "sell", "limit", 10, trigger=trigger)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(res.data["order"]["status"], "filled")
+
+    def test_stop_loss_above_current_fills_immediately(self):
+        self._market_buy(self.orbit)
+        trigger = self._current_price(self.orbit) * 2  # price already below stop
+        res = self._place(self.orbit, "sell", "stop_loss", 10, trigger=trigger)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(res.data["order"]["status"], "filled")
+
+    # -- pending + cancel --
+
+    def test_limit_below_current_stays_pending_then_cancels(self):
+        res = self._place(self.orbit, "buy", "limit", 10, trigger=Decimal("0.0001"))
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(res.data["order"]["status"], "pending")
+
+        order_id = res.data["order"]["id"]
+        listed = self.client.get("/api/invest/orders/list/").data
+        pending = [o for o in listed if o["id"] == order_id][0]
+        self.assertEqual(pending["status"], "pending")
+        self.assertEqual(Decimal(pending["trigger_price"]), Decimal("0.0001"))
+
+        cancelled = self.client.post(f"/api/invest/orders/{order_id}/cancel/").data
+        self.assertEqual(cancelled["status"], "cancelled")
+        self.assertEqual(
+            Order.objects.get(id=order_id).status, Order.Status.CANCELLED
+        )
+
+    def test_filled_order_cannot_be_cancelled(self):
+        res = self._place(self.orbit, "buy", "limit", 10, trigger=self._current_price(self.orbit) * 2)
+        self.assertEqual(res.data["order"]["status"], "filled")
+        cancel = self.client.post(f"/api/invest/orders/{res.data['order']['id']}/cancel/")
+        self.assertEqual(cancel.status_code, 400)
+
+    def test_stop_loss_must_be_a_sell(self):
+        res = self._place(self.orbit, "buy", "stop_loss", 10, trigger=100)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # -- lazy path-crossing fills --
+
+    def test_buy_limit_fills_lazily_when_path_crosses(self):
+        trigger = (self._current_price(self.orbit) * Decimal("0.995")).quantize(Decimal("0.01"))
+        res = self._place(self.orbit, "buy", "limit", 10, trigger=trigger)
+        self.assertEqual(res.data["order"]["status"], "pending")
+
+        future, crossing = self._future_crossing(self.orbit, trigger, "below")
+        changed = trading.check_pending_orders(self.user_a, at=future)
+        self.assertEqual(len(changed), 1)
+        order = changed[0]
+        self.assertEqual(order.status, Order.Status.FILLED)
+        self.assertEqual(order.price, crossing)
+
+        portfolio = VirtualPortfolio.objects.get(user_id=self.user_a)
+        holding = Holding.objects.get(portfolio=portfolio, instrument=self.orbit)
+        self.assertEqual(holding.quantity, Decimal("10"))
+        self.assertEqual(holding.avg_price, crossing)
+
+    def test_sell_limit_fills_lazily_when_price_rises(self):
+        self._market_buy(self.orbit)
+        trigger = (self._current_price(self.orbit) * Decimal("1.005")).quantize(Decimal("0.01"))
+        res = self._place(self.orbit, "sell", "limit", 10, trigger=trigger)
+        self.assertEqual(res.data["order"]["status"], "pending")
+
+        future, _ = self._future_crossing(self.orbit, trigger, "above")
+        changed = trading.check_pending_orders(self.user_a, at=future)
+        self.assertEqual(len(changed), 1)
+        self.assertEqual(changed[0].status, Order.Status.FILLED)
+        # holding closed out
+        self.assertFalse(
+            Holding.objects.filter(
+                portfolio=VirtualPortfolio.objects.get(user_id=self.user_a),
+                instrument=self.orbit,
+            ).exists()
+        )
+
+    def test_stop_loss_triggers_on_dip(self):
+        self._market_buy(self.orbit)
+        trigger = (self._current_price(self.orbit) * Decimal("0.995")).quantize(Decimal("0.01"))
+        res = self._place(self.orbit, "sell", "stop_loss", 10, trigger=trigger)
+        self.assertEqual(res.data["order"]["status"], "pending")
+
+        future, crossing = self._future_crossing(self.orbit, trigger, "below")
+        changed = trading.check_pending_orders(self.user_a, at=future)
+        self.assertEqual(len(changed), 1)
+        order = changed[0]
+        self.assertEqual(order.status, Order.Status.FILLED)
+        self.assertEqual(order.price, crossing)
+        # sold out at the stop
+        self.assertFalse(
+            Holding.objects.filter(
+                portfolio=VirtualPortfolio.objects.get(user_id=self.user_a),
+                instrument=self.orbit,
+            ).exists()
+        )
+
+    def test_insufficient_cash_cancels_pending_buy(self):
+        trigger = self._current_price(self.orbit) * 2  # crossed instantly
+        res = self._place(self.orbit, "buy", "limit", 1000000, trigger=trigger)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data["order"]["status"], "cancelled")
+        self.assertIn("insufficient cash", res.data["order"]["note"])
+
+    # -- engine consistency --
+
+    def test_price_series_matches_price_at(self):
+        from_tick = trading.tick_of(timezone.now())
+        series = engine.price_series(self.orbit, SEED_A, from_tick, from_tick + 5)
+        for i, price in enumerate(series):
+            at = engine.EPOCH + timedelta(seconds=(from_tick + i) * engine.TICK_SECONDS)
+            self.assertEqual(price, engine.price_at(self.orbit, SEED_A, at=at))

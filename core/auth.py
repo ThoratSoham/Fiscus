@@ -69,6 +69,10 @@ class SupabaseJWTAuthentication(BaseAuthentication):
                 algorithms=["RS256", "ES256"],
                 audience="authenticated",
                 options={"require": ["exp", "sub"]},
+                # serverless clocks can lag Supabase's by a few seconds;
+                # without leeway a fresh token's iat looks "in the future"
+                # and verification spuriously fails
+                leeway=60,
             )
         except AuthenticationFailed:
             raise
