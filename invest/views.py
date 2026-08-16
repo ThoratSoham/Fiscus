@@ -10,10 +10,17 @@ from rest_framework.response import Response
 
 from core.auth import SupabaseJWTAuthentication
 from streaks.models import Profile
-from .engine import latest_price
-from .models import Instrument, Order, VirtualPortfolio
+from .engine import latest_price, ohlc_series
+from .models import Holding, Instrument, Order, VirtualPortfolio
 from .serializers import OrderSerializer
-from .trading import apply_fill, check_pending_orders
+from .trading import (
+    SHORT_MARGIN_RATE,
+    apply_fill,
+    available_cash,
+    check_pending_orders,
+    margin_reserve,
+    portfolio_history,
+)
 
 AUTH = [SupabaseJWTAuthentication]
 PERM = [permissions.IsAuthenticated]
@@ -69,38 +76,54 @@ def instruments(request):
 # ---------------------------------------------------------------------------
 
 def _portfolio_payload(portfolio, at=None):
-    """Aggregate cash, invested value, P&L and open holdings at engine prices."""
+    """Aggregate cash, invested value, P&L and open holdings at engine prices.
+
+    Shorts (spec 6.5): negative quantity, invested/value shown as gross
+    absolutes, P&L flipped ((avg − price) × |qty|, green when price falls),
+    and a margin reserve locked out of available cash.
+    """
     at = at or timezone.now()
     invested = Decimal("0")
     current_value = Decimal("0")
+    signed_market = Decimal("0")  # Σ qty × price — shorts subtract (spec 6.5)
     holdings = []
     for holding in portfolio.holdings.select_related("instrument"):
         price, _as_of, _source, _stale = latest_price(holding.instrument, portfolio.seed, at=at)
-        cost = (holding.avg_price * holding.quantity).quantize(Decimal("0.01"))
-        value = (price * holding.quantity).quantize(Decimal("0.01"))
-        pnl = (value - cost).quantize(Decimal("0.01"))
+        is_short = holding.quantity < 0
+        qty_abs = abs(holding.quantity)
+        cost = (holding.avg_price * qty_abs).quantize(Decimal("0.01"))
+        value = (price * qty_abs).quantize(Decimal("0.01"))
+        # short P&L = (avg − price) × qty; long P&L = (price − avg) × qty
+        pnl = (value - cost) if not is_short else (cost - value)
         invested += cost
         current_value += value
+        signed_market += price * holding.quantity
         holdings.append(
             {
                 "instrument_id": holding.instrument_id,
                 "symbol": holding.instrument.symbol,
                 "name": holding.instrument.name,
                 "quantity": str(holding.quantity),
+                "short": is_short,
                 "avg_price": str(holding.avg_price),
                 "last_price": str(price),
                 "invested": str(cost),
                 "current_value": str(value),
-                "pnl": str(pnl),
+                "pnl": str(pnl.quantize(Decimal("0.01"))),
                 "pnl_pct": str((pnl / cost * 100).quantize(Decimal("0.01")) if cost else Decimal("0")),
+                "spark": [str(c["close"]) for c in ohlc_series(holding.instrument, portfolio.seed, days=15, end=at)],
             }
         )
 
-    total = (portfolio.current_balance + current_value).quantize(Decimal("0.01"))
+    reserve = margin_reserve(portfolio, at)
+    total = (portfolio.current_balance + signed_market).quantize(Decimal("0.01"))
     starting = portfolio.starting_balance
     return {
         "starting_balance": str(starting),
         "cash": str(portfolio.current_balance),
+        "available_cash": str(available_cash(portfolio, at)),
+        "margin_reserve": str(reserve),
+        "margin_rate": str(SHORT_MARGIN_RATE),
         "invested": str(invested.quantize(Decimal("0.01"))),
         "portfolio_value": str(total),
         "return_amount": str((total - starting).quantize(Decimal("0.01"))),
@@ -109,6 +132,7 @@ def _portfolio_payload(portfolio, at=None):
         "recent_orders": OrderSerializer(
             portfolio.orders.select_related("instrument")[:10], many=True
         ).data,
+        "history": portfolio_history(portfolio, days=30, at=at),
     }
 
 
@@ -119,6 +143,70 @@ def portfolio(request):
     check_pending_orders(request.user.id)
     portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
     return Response(_portfolio_payload(portfolio))
+
+
+@api_view(["GET"])
+@authentication_classes(AUTH)
+@permission_classes(PERM)
+def chart_data(request, pk):
+    """Everything the instrument chart needs (spec 6.8): daily candles from
+    the engine's OHLC buckets, the student's position + pending triggers on
+    this instrument (for entry/trigger lines), and trade history (markers)."""
+    instrument = get_object_or_404(Instrument, pk=pk, is_active=True)
+    portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
+    now = timezone.now()
+
+    holding = Holding.objects.filter(
+        portfolio=portfolio, instrument=instrument
+    ).first()
+
+    pending = list(
+        Order.objects.filter(
+            user_id=request.user.id,
+            instrument=instrument,
+            status=Order.Status.PENDING,
+        ).order_by("created_at")
+    )
+    fills = list(
+        Order.objects.filter(
+            user_id=request.user.id,
+            instrument=instrument,
+            status=Order.Status.FILLED,
+        ).order_by("-filled_at")[:50]
+    )
+
+    return Response(
+        {
+            "symbol": instrument.symbol,
+            "name": instrument.name,
+            "current": str(latest_price(instrument, portfolio.seed, at=now)[0]),
+            "candles": ohlc_series(instrument, portfolio.seed, days=30, end=now),
+            "holding": {
+                "quantity": str(holding.quantity),
+                "avg_price": str(holding.avg_price),
+            }
+            if holding
+            else None,
+            "pending": [
+                {
+                    "id": o.id,
+                    "side": o.side,
+                    "order_type": o.order_type,
+                    "trigger_price": str(o.trigger_price),
+                }
+                for o in pending
+            ],
+            "fills": [
+                {
+                    "side": o.side,
+                    "price": str(o.price),
+                    "quantity": str(o.quantity),
+                    "filled_at": o.filled_at.isoformat() if o.filled_at else None,
+                }
+                for o in fills
+            ],
+        }
+    )
 
 
 @api_view(["GET"])
@@ -206,7 +294,7 @@ def place_order(request):
                 request.user.id, now, note=request.data.get("note", "")[:120],
             )
             if filled is None:
-                reason = "Insufficient cash" if side == "buy" else "You don't hold enough of this instrument to sell."
+                reason = "Insufficient available cash" if side == "buy" else "Short too large: the short's value must fit in your available cash (50% margin reserve)."
                 return Response({"detail": reason}, status=status.HTTP_400_BAD_REQUEST)
             order = filled
     else:

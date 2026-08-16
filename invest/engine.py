@@ -24,7 +24,7 @@ Design notes:
 """
 import hashlib
 import math
-from datetime import timezone as dt_timezone
+from datetime import timedelta, timezone as dt_timezone
 from decimal import Decimal
 from functools import lru_cache
 
@@ -114,6 +114,46 @@ def _walk_log(instrument_id, seed, tick, volatility, drift):
         r = _rand(seed, instrument_id, i)
         total += drift * TICK_DAYS + volatility * (2 * r - 1) * math.sqrt(TICK_DAYS)
     return total
+
+
+TICKS_PER_DAY = 86400 // TICK_SECONDS  # 96 simulated ticks per day
+
+
+def tick_of(dt):
+    return max(int((dt - EPOCH).total_seconds() // TICK_SECONDS), 0)
+
+
+def ohlc_series(instrument, seed, days=30, end=None):
+    """Daily OHLC candles bucketed from the deterministic tick path
+    (spec 6.8) — the 15-min buckets become daily open/high/low/close.
+    Returns [{date, open, high, low, close}] oldest first.
+    """
+    end = end or timezone.now()
+    end_tick = tick_of(end)
+    start_tick = max(end_tick - days * TICKS_PER_DAY, 0)
+    prices = price_series(instrument, seed, start_tick, end_tick)
+    candles = []
+    for d in range(days):
+        day_prices = prices[d * TICKS_PER_DAY:(d + 1) * TICKS_PER_DAY]
+        if not day_prices:
+            break
+        candles.append(_make_candle(instrument, seed, start_tick + d * TICKS_PER_DAY, day_prices))
+    # trailing partial bucket — today's incomplete candle so the chart never lags
+    remaining = prices[days * TICKS_PER_DAY:]
+    if remaining:
+        candles.append(_make_candle(instrument, seed, start_tick + days * TICKS_PER_DAY, remaining))
+    return candles
+
+
+def _make_candle(instrument, seed, start_tick, day_prices):
+    day_date = EPOCH + timedelta(seconds=start_tick * TICK_SECONDS)
+    return {
+        "date": day_date.date().isoformat(),
+        "open": day_prices[0],
+        "high": max(day_prices),
+        "low": min(day_prices),
+        "close": day_prices[-1],
+    }
 
 
 def price_series(instrument, seed, from_tick, to_tick):

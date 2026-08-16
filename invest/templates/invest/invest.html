@@ -38,12 +38,29 @@
       </div>
     </section>
 
+    <!-- short-selling warning (spec 6.5) -->
+    <section class="panel panel--danger" id="short-banner" hidden>
+      <h2 class="panel__title">⚠ Short position open</h2>
+      <p class="panel__note">You've sold shares you don't own. If the price <strong>rises</strong>, your loss is
+      <strong>unlimited</strong> — you must buy back (cover) to close. A margin reserve is locked out of your
+      cash while the short is open, and if the short's value ever exceeds your cash, it is force-closed as a
+      <strong>margin call</strong>.</p>
+    </section>
+
     <!-- summary chips -->
     <section class="chips" id="summary-chips">
       <div class="chip chip--blue"><span class="chip__label">Portfolio value</span><span class="chip__value" id="chip-value">—</span></div>
       <div class="chip"><span class="chip__label">Cash</span><span class="chip__value" id="chip-cash">—</span></div>
+      <div class="chip"><span class="chip__label">Available cash</span><span class="chip__value" id="chip-available">—</span></div>
+      <div class="chip"><span class="chip__label">Margin reserved</span><span class="chip__value" id="chip-margin">—</span></div>
       <div class="chip"><span class="chip__label">Invested</span><span class="chip__value" id="chip-invested">—</span></div>
       <div class="chip chip--black"><span class="chip__label">Return</span><span class="chip__value" id="chip-return">—</span></div>
+    </section>
+
+    <!-- portfolio value over time -->
+    <section class="panel panel--wide">
+      <h2 class="panel__title">Portfolio value — last 30 days</h2>
+      <div class="chart-box"><canvas id="value-chart" aria-label="Line chart of portfolio value over the last 30 days"></canvas></div>
     </section>
 
     <!-- trade -->
@@ -92,6 +109,25 @@
     <section class="panel panel--wide" id="pending-panel" hidden>
       <h2 class="panel__title">Pending orders</h2>
       <div id="pending-list" class="list-box"></div>
+    </section>
+
+    <!-- price chart -->
+    <section class="panel panel--wide">
+      <h2 class="panel__title">Price chart</h2>
+      <div class="chart-toolbar">
+        <label class="field field--inline">
+          <span class="field__label">Instrument</span>
+          <select class="field__input" id="chart-instrument"></select>
+        </label>
+        <span class="chart-legend">
+          <span class="lg lg--entry">entry</span>
+          <span class="lg lg--stop">stop / sell</span>
+          <span class="lg lg--buy">buy limit</span>
+          <span class="lg lg--flag">trades</span>
+        </span>
+      </div>
+      <div class="chart-box chart-box--tall"><canvas id="candle-chart" aria-label="Daily candlestick chart of the selected simulated instrument"></canvas></div>
+      <p class="chart-note" id="chart-note"></p>
     </section>
 
     <!-- holdings -->

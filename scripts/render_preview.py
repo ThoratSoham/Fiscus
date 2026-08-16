@@ -11,6 +11,7 @@ Outputs:
   preview-lesson.html   — lesson detail (first lesson, playable quiz)
   preview-invest.html   — invest page (mock data, no session)
 """
+import json
 import os
 import sys
 
@@ -75,6 +76,74 @@ def real_config():
     }
 
 
+def _mock_walk(start, n, vol, seed=7):
+    """Deterministic pseudo-random walk for preview data."""
+    x = seed
+    out = []
+    value = start
+    for _ in range(n):
+        x = (x * 1103515245 + 12345) & 0x7FFFFFFF
+        value *= 1 + (vol * ((x / 0x7FFFFFFF) - 0.5))
+        out.append(value)
+    return out
+
+
+def invest_mock():
+    """Build the full preview mock: static base (instruments/portfolio) merged
+    with generated chart + history data, plus per-holding sparklines."""
+    base = json.loads(INVEST_MOCK)
+    history = _mock_walk(100000.0, 31, 0.004)
+    history[30] = 100130.0  # pin the last point to the portfolio value
+    closes = _mock_walk(480.0, 31, 0.02, seed=11)
+    candles = []
+    prev_close = 480.0
+    for i, close in enumerate(closes):
+        open_ = prev_close
+        high = max(open_, close) * (1 + 0.004 * ((i * 7) % 3))
+        low = min(open_, close) * (1 - 0.004 * ((i * 5) % 3))
+        candles.append(
+            {
+                "date": f"2026-07-{(i % 28) + 1:02d}",
+                "open": round(open_, 2),
+                "high": round(high, 2),
+                "low": round(low, 2),
+                "close": round(close, 2),
+            }
+        )
+        prev_close = close
+    # per-holding sparklines: deterministic walk around each avg price
+    holdings = base["portfolio"]["holdings"]
+    for idx, h in enumerate(holdings):
+        avg = float(h["avg_price"])
+        walk = _mock_walk(avg, 14, 0.015, seed=3 + idx)
+        walk[-1] = float(h["last_price"])  # end at the live price
+        h["spark"] = [round(v, 2) for v in walk]
+    base["portfolio"]["history"] = [
+        {"date": f"day-{i:02d}", "value": f"{v:.2f}"} for i, v in enumerate(history)
+    ]
+    base.update(
+        {
+            "chart": {
+                "symbol": "ORBIT",
+                "name": "Orbit Motors",
+                "current": f"{closes[-1]:.2f}",
+                "candles": candles,
+                "holding": {"quantity": "10", "avg_price": f"{closes[20]:.2f}"},
+                "pending": [
+                    {"id": 1, "side": "buy", "order_type": "limit", "trigger_price": f"{closes[-1] * 0.98:.2f}"},
+                    {"id": 2, "side": "sell", "order_type": "stop_loss", "trigger_price": f"{closes[15]:.2f}"},
+                ],
+                "fills": [
+                    {"side": "buy", "price": f"{closes[20]:.2f}", "quantity": "10", "filled_at": "2026-08-14T10:02:00Z"},
+                    {"side": "buy", "price": f"{closes[12]:.2f}", "quantity": "5", "filled_at": "2026-08-11T09:30:00Z"},
+                    {"side": "sell", "price": f"{closes[15]:.2f}", "quantity": "5", "filled_at": "2026-08-12T11:00:00Z"},
+                ],
+            },
+        }
+    )
+    return base
+
+
 INVEST_MOCK = """{
   "instruments": [
     {"id": 1, "symbol": "NIFTY-SIM", "name": "Nifty Sim Index", "kind": "index", "price": "24531.75", "as_of": "2026-08-16T10:15:00+05:30", "source": "simulated", "stale": false},
@@ -88,6 +157,9 @@ INVEST_MOCK = """{
   "portfolio": {
     "starting_balance": "100000.00",
     "cash": "36107.00",
+    "available_cash": "31920.55",
+    "margin_reserve": "4186.45",
+    "margin_rate": "0.5",
     "invested": "63893.00",
     "portfolio_value": "100130.00",
     "return_amount": "130.00",
@@ -96,7 +168,8 @@ INVEST_MOCK = """{
       {"instrument_id": 4, "symbol": "ORBIT", "name": "Orbit Motors", "quantity": "10", "avg_price": "480.0000", "last_price": "493.60", "invested": "4800.00", "current_value": "4936.00", "pnl": "136.00", "pnl_pct": "2.83", "stale": false},
       {"instrument_id": 1, "symbol": "NIFTY-SIM", "name": "Nifty Sim Index", "quantity": "0.5", "avg_price": "24500.0000", "last_price": "24531.75", "invested": "12250.00", "current_value": "12265.88", "pnl": "15.88", "pnl_pct": "0.13", "stale": false},
       {"instrument_id": 5, "symbol": "PIXEL", "name": "Pixelworks Tech", "quantity": "10", "avg_price": "1450.0000", "last_price": "1472.10", "invested": "14500.00", "current_value": "14721.00", "pnl": "221.00", "pnl_pct": "1.52", "stale": false},
-      {"instrument_id": 6, "symbol": "DUNE", "name": "Dune Metals", "quantity": "20", "avg_price": "610.0000", "last_price": "594.30", "invested": "12200.00", "current_value": "11886.00", "pnl": "-314.00", "pnl_pct": "-2.57", "stale": false}
+      {"instrument_id": 6, "symbol": "DUNE", "name": "Dune Metals", "quantity": "20", "avg_price": "610.0000", "last_price": "594.30", "invested": "12200.00", "current_value": "11886.00", "pnl": "-314.00", "pnl_pct": "-2.57", "stale": false},
+      {"instrument_id": 7, "symbol": "SOLARIS", "name": "Solaris Energy", "quantity": "-50", "short": true, "avg_price": "115.0000", "last_price": "101.85", "invested": "5750.00", "current_value": "5092.50", "pnl": "657.50", "pnl_pct": "11.43", "stale": false}
     ],
     "recent_orders": [
       {"id": 1, "instrument_symbol": "ORBIT", "side": "buy", "quantity": "10", "order_type": "limit", "status": "pending", "trigger_price": "470.0000", "price": null, "created_at": "2026-08-16T10:05:00Z"},
@@ -170,7 +243,7 @@ def main():
         '<link rel="stylesheet" href="/static/invest/css/invest.css">',
         "<style>\n" + read_static("invest/static/invest/css/invest.css") + "\n</style>",
     )
-    mock = INVEST_MOCK
+    mock = json.dumps(invest_mock())
     invest_html = invest_html.replace(
         '<script src="/static/invest/js/invest.js" defer></script>',
         "<script>window.FISCUS_MOCK = " + mock + ";</script>"

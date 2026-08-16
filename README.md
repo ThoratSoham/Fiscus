@@ -86,7 +86,15 @@ Setup: `manage.py migrate` (schema + seeded simulated roster). No Supabase/RLS c
 
 Also in this step: `core/auth.py` accepts **ES256** tokens and uses a 60s leeway for clock skew — Supabase's signing key is EC now, and serverless clocks can lag by a few seconds, so without both fixes valid logins would 401.
 
-Next per the spec's build order: short-selling with margin, scripted-event tuning, charts + position visualizations (OHLC is a natural byproduct of the 15-min buckets), leaderboard + social feed, options (Black-Scholes off the simulated price).
+**Charts + position visualizations (spec 6.8)** — all rendered with custom brutalist canvas renderers (no chart library):
+- `engine.ohlc_series` buckets the deterministic price path into **daily OHLC candles** (including today's partial candle) — the spec's "OHLC is a natural byproduct of the engine" design, no historical-data source.
+- `trading.portfolio_history` **replays the order ledger** to reconstruct daily portfolio value — no `PortfolioSnapshot` table, no cron; the chart matches the live value by construction (the final point is "now").
+- `GET /api/invest/chart/<instrument>/` returns candles plus the position overlay: entry (avg-price) line, **dashed pending-trigger lines** (solid once filled), and buy/sell trade markers from the fill history. The portfolio payload now carries `history` and each holding carries a `spark` series.
+- UI: **portfolio-value line chart** (30 days), **instrument candlestick chart** with a legend (solid black entry / red dashed stop / blue dashed buy-limit / dotted trade flags) and an instrument selector synced to the order form, plus a **sparkline per holding** in the holdings table. The 5s ticker re-renders the live candle.
+
+**Short-selling with margin reserve (spec 6.5)** — a sell beyond the long holding opens a short (negative-quantity holding); P&L flips to (avg − price) × |qty| so a short profits when the price falls. A **50% margin reserve** is locked out of available cash (`available_cash = cash − reserve`), mirroring real margin requirements — it's recalculated at engine prices on every read, so a rally against the short shrinks what the student can actually trade. A new short's value must fit in available cash (capped at ~2× capital); covering releases the reserve, partial covers keep the entry price, and over-covering flips the position into a long at the cover price. If a short's current value ever exceeds the cash on hand (can't cover), the next read **force-closes it as a margin call** at market price — the loss can take cash negative, which is the lesson, and reset is the way back. UI: a red "short position open" warning banner (unlimited-risk language), Available cash / Margin reserved chips, a red SHORT tag on holdings rows, short-aware sparklines, and the order hint explains shorting on sell. `core/auth.py`/engine untouched — no schema change, no migration.
+
+Next per the spec's build order: scripted-event tuning, leaderboard + social feed, options (Black-Scholes off the simulated price).
 
 ## Stack
 
