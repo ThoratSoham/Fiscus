@@ -49,6 +49,16 @@ DATABASE_URL=sqlite:///test.db .venv/Scripts/python.exe manage.py test track lea
 - `invest/` — stub models only (`VirtualPortfolio`, `Holding`), migration applied to Supabase, **no UI** — Phase 6 builds on them.
 - 38 tests pass (learn 12, track 12, streaks 14).
 
+### Google sign-in (Supabase OAuth)
+
+1. **Google Cloud Console** → APIs & Services → Credentials → Create OAuth 2.0 Client ID (Web application):
+   - **Authorized JavaScript origins:** `https://fiscus-one.vercel.app` (add `http://localhost:8765` for local dev)
+   - **Authorized redirect URIs:** `https://yawvyibadiiacfstlkew.supabase.co/auth/v1/callback`
+2. **Supabase** → Authentication → Providers → Google: enable, paste the Client ID + Client Secret.
+3. Make sure **Authentication → URL Configuration → Site URL** is `https://fiscus-one.vercel.app`.
+
+The landing page's "Sign in with Google" button calls `supabase.auth.signInWithOAuth({ provider: "google" })`; after the callback the session is active and the dashboard link appears.
+
 ### Production deploy checklist
 
 1. Merge the Phase 4+5 branch into `main`; Vercel redeploys.
