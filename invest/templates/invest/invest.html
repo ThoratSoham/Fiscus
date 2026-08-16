@@ -1,0 +1,114 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FISCUS — Invest</title>
+  <link rel="stylesheet" href="{% static 'core/css/brutalist.css' %}">
+  <link rel="stylesheet" href="{% static 'invest/css/invest.css' %}">
+  {{ config|json_script:"fiscus-config" }}
+</head>
+<body>
+
+  <div class="page-grid" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="topbar__brand" href="/">FISCUS</a>
+    <nav class="topbar__nav" aria-label="Primary">
+      <a href="/">Landing</a>
+      <a href="/dashboard/">Track</a>
+      <a href="/learn/">Learn</a>
+      <a href="/invest/" class="is-active">Invest</a>
+    </nav>
+    <button class="btn btn--black btn--sm" type="button" id="logout-btn">Log out</button>
+  </header>
+
+  <main class="invest">
+    <section class="invest__head">
+      <h1 class="section-title">Invest</h1>
+      <p class="invest__sub">Paper trading on real NSE prices — no real money, real lessons.</p>
+    </section>
+
+    <!-- market status -->
+    <section class="panel">
+      <div class="market-line">
+        <span class="market-dot" id="market-dot"></span>
+        <span id="market-status">Loading market status…</span>
+      </div>
+    </section>
+
+    <!-- summary chips -->
+    <section class="chips" id="summary-chips">
+      <div class="chip chip--blue"><span class="chip__label">Portfolio value</span><span class="chip__value" id="chip-value">—</span></div>
+      <div class="chip"><span class="chip__label">Cash</span><span class="chip__value" id="chip-cash">—</span></div>
+      <div class="chip"><span class="chip__label">Invested</span><span class="chip__value" id="chip-invested">—</span></div>
+      <div class="chip chip--black"><span class="chip__label">Return</span><span class="chip__value" id="chip-return">—</span></div>
+    </section>
+
+    <!-- trade -->
+    <section class="panel">
+      <h2 class="panel__title">Place a market order</h2>
+      <form id="order-form" class="grid-form" novalidate>
+        <label class="field">
+          <span class="field__label">Instrument</span>
+          <select class="field__input" id="order-instrument" required></select>
+        </label>
+        <label class="field">
+          <span class="field__label">Side</span>
+          <select class="field__input" id="order-side">
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Quantity</span>
+          <input class="field__input" type="number" step="any" min="0.000001" id="order-quantity" required placeholder="e.g. 5">
+        </label>
+        <label class="field field--wide">
+          <span class="field__label">Note (optional)</span>
+          <input class="field__input" type="text" id="order-note" placeholder="why this trade?">
+        </label>
+        <div class="panel__actions">
+          <button class="btn btn--blue" type="submit" id="order-submit">Place order</button>
+        </div>
+      </form>
+      <p class="order-hint" id="order-hint"></p>
+    </section>
+
+    <!-- holdings -->
+    <section class="panel panel--wide">
+      <h2 class="panel__title">Holdings</h2>
+      <div id="holdings-list" class="list-box"></div>
+    </section>
+
+    <!-- instruments / prices -->
+    <section class="panel panel--wide">
+      <h2 class="panel__title">Market prices</h2>
+      <div id="instruments-list" class="list-box"></div>
+    </section>
+
+    <!-- recent orders -->
+    <section class="panel panel--wide">
+      <h2 class="panel__title">Recent orders</h2>
+      <div id="orders-list" class="list-box"></div>
+    </section>
+
+    <!-- danger zone -->
+    <section class="panel">
+      <h2 class="panel__title">Reset portfolio</h2>
+      <p class="panel__note">Wipes all holdings and orders, restores your starting balance.</p>
+      <button class="btn" type="button" id="reset-btn">Reset portfolio</button>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>FISCUS — learn money by using it.</p>
+    <p class="footer__meta">Prices via Yahoo Finance · may be delayed · paper trading only</p>
+  </footer>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4"></script>
+  <script src="{% static 'invest/js/invest.js' %}" defer></script>
+  <div id="toast-wrap" class="toast-wrap" hidden></div>
+</body>
+</html>
