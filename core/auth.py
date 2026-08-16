@@ -64,7 +64,9 @@ class SupabaseJWTAuthentication(BaseAuthentication):
             payload = jwt.decode(
                 token,
                 signing_key.key,
-                algorithms=["RS256"],
+                # Supabase signs access tokens with RS256 or ES256 depending
+                # on the project's active signing key — accept both.
+                algorithms=["RS256", "ES256"],
                 audience="authenticated",
                 options={"require": ["exp", "sub"]},
             )

@@ -95,8 +95,8 @@ class BadgeTests(TestCase):
     def test_first_trade_badge(self):
         portfolio = VirtualPortfolio.objects.create(user_id=self.user_id)
         instrument, _ = Instrument.objects.get_or_create(
-            yahoo_symbol="RELIANCE.NS",
-            defaults={"symbol": "RELIANCE", "name": "Reliance", "default_price": "2500"},
+            yahoo_symbol="SIM-TEST",
+            defaults={"symbol": "TESTCO", "name": "Testco Ltd", "base_price": "2500"},
         )
         Holding.objects.create(
             portfolio=portfolio, instrument=instrument, quantity=10, avg_price=2500

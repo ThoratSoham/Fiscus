@@ -10,9 +10,9 @@ from rest_framework.response import Response
 
 from core.auth import SupabaseJWTAuthentication
 from streaks.models import Profile
+from .engine import latest_price
 from .models import Holding, Instrument, Order, VirtualPortfolio
-from .prices import is_market_open, latest_price, refresh_all
-from .serializers import InstrumentSerializer, OrderSerializer
+from .serializers import OrderSerializer
 
 AUTH = [SupabaseJWTAuthentication]
 PERM = [permissions.IsAuthenticated]
@@ -42,16 +42,23 @@ def invest_page(request):
 
 
 # ---------------------------------------------------------------------------
-# Public reference data
+# Instruments (auth required — prices are per-student, seeded by portfolio)
 # ---------------------------------------------------------------------------
 
 @api_view(["GET"])
+@authentication_classes(AUTH)
+@permission_classes(PERM)
 def instruments(request):
-    """Active instruments with the best-known price (lazy refresh)."""
-    refresh_all()  # warm snapshots on cold cache, threaded, TTL-guarded upstream
+    """Active simulated instruments with their current engine price.
+
+    The market is private per student: every price is computed from the
+    user's portfolio seed at the current time. 24/7 — always open.
+    """
+    portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
+    now = timezone.now()
     rows = []
     for instrument in Instrument.objects.filter(is_active=True):
-        price, as_of, source, stale = latest_price(instrument, refresh=False)
+        price, as_of, source, stale = latest_price(instrument, portfolio.seed, at=now)
         rows.append(
             {
                 "id": instrument.id,
@@ -59,27 +66,26 @@ def instruments(request):
                 "name": instrument.name,
                 "kind": instrument.kind,
                 "price": str(price),
-                "as_of": as_of.isoformat() if as_of else None,
+                "as_of": as_of.isoformat(),
                 "source": source,
                 "stale": stale,
             }
         )
-    return Response(
-        {"market_open": is_market_open(), "instruments": rows, "as_of_utc": timezone.now().isoformat()}
-    )
+    return Response({"market_open": True, "instruments": rows, "as_of_utc": now.isoformat()})
 
 
 # ---------------------------------------------------------------------------
-# Portfolio (auth required)
+# Portfolio
 # ---------------------------------------------------------------------------
 
-def _portfolio_payload(portfolio):
-    """Aggregate cash, invested value, P&L and open holdings at latest prices."""
+def _portfolio_payload(portfolio, at=None):
+    """Aggregate cash, invested value, P&L and open holdings at engine prices."""
+    at = at or timezone.now()
     invested = Decimal("0")
     current_value = Decimal("0")
     holdings = []
     for holding in portfolio.holdings.select_related("instrument"):
-        price, as_of, _source, stale = latest_price(holding.instrument, refresh=False)
+        price, _as_of, _source, _stale = latest_price(holding.instrument, portfolio.seed, at=at)
         cost = _q2(holding.avg_price * holding.quantity)
         value = _q2(price * holding.quantity)
         pnl = _q2(value - cost)
@@ -97,7 +103,6 @@ def _portfolio_payload(portfolio):
                 "current_value": str(value),
                 "pnl": str(pnl),
                 "pnl_pct": str(_q2(pnl / cost * 100) if cost else Decimal("0")),
-                "stale": stale,
             }
         )
 
@@ -122,7 +127,6 @@ def _portfolio_payload(portfolio):
 @permission_classes(PERM)
 def portfolio(request):
     portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
-    refresh_all()  # warm prices before aggregating
     return Response(_portfolio_payload(portfolio))
 
 
@@ -134,7 +138,7 @@ def portfolio(request):
 @authentication_classes(AUTH)
 @permission_classes(PERM)
 def place_order(request):
-    """Market order: fill instantly at the latest snapshot price.
+    """Market order: fill instantly at the current engine price.
 
     Buy:  debit cash, average into the holding. Sell: credit cash, reduce
     the holding (rejects overselling). The First Trade badge unlocks on the
@@ -157,15 +161,12 @@ def place_order(request):
     if quantity <= 0:
         return Response({"detail": "Quantity must be greater than zero."}, status=status.HTTP_400_BAD_REQUEST)
 
-    price, _as_of, _source, stale = latest_price(instrument)
-    if price is None or price <= 0:
-        return Response({"detail": "No price available for this instrument."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
     portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
+    now = timezone.now()
+    fill_price = _q4(latest_price(instrument, portfolio.seed, at=now)[0])
 
     with transaction.atomic():
         portfolio = VirtualPortfolio.objects.select_for_update().get(pk=portfolio.pk)
-        fill_price = _q4(price)
         cost = _q2(fill_price * quantity)
 
         if side == "buy":
@@ -212,7 +213,7 @@ def place_order(request):
             quantity=quantity,
             price=fill_price,
             note=request.data.get("note", "")[:120],
-            filled_at=timezone.now(),
+            filled_at=now,
         )
 
     profile = Profile.get_or_create_for(request.user.id)
@@ -223,7 +224,6 @@ def place_order(request):
         {
             "order": OrderSerializer(order).data,
             "cash": str(portfolio.current_balance),
-            "stale_price": stale,
             "unlocked_badges": newly_unlocked,
         },
         status=status.HTTP_201_CREATED,
@@ -234,30 +234,11 @@ def place_order(request):
 @authentication_classes(AUTH)
 @permission_classes(PERM)
 def reset_portfolio(request):
-    """Reset: wipe positions + orders, restore the starting balance."""
+    """Reset: wipe positions + orders, restore the starting balance, and
+    re-roll the market seed — a genuinely fresh private market."""
     portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
+    old_seed = portfolio.seed
     portfolio.reset()
-    return Response(_portfolio_payload(portfolio))
-
-
-# ---------------------------------------------------------------------------
-# Cron
-# ---------------------------------------------------------------------------
-
-@api_view(["GET", "POST"])
-def cron_prices(request):
-    """Vercel Cron entrypoint: refresh price snapshots.
-
-    Vercel sends the cron secret as `Authorization: Bearer <CRON_SECRET>`.
-    With DEBUG=False a configured CRON_SECRET is mandatory. The lazy refresh
-    on page load covers normal usage; this just keeps snapshots warm.
-    """
-    secret = settings.CRON_SECRET
-    auth = request.headers.get("Authorization", "")
-    if secret and auth != f"Bearer {secret}":
-        return Response({"detail": "Unauthorized"}, status=401)
-    if not secret and not settings.DEBUG:
-        return Response({"detail": "CRON_SECRET is not configured"}, status=500)
-    results = refresh_all()
-    ok = sum(1 for value in results.values() if value)
-    return Response({"refreshed": ok, "total": len(results), "at": timezone.now().isoformat()})
+    return Response(
+        {**_portfolio_payload(portfolio), "seed_changed": old_seed != portfolio.seed}
+    )

@@ -5,14 +5,14 @@ from .models import Holding, Instrument, Order, VirtualPortfolio
 
 @admin.register(Instrument)
 class InstrumentAdmin(admin.ModelAdmin):
-    list_display = ("symbol", "name", "kind", "yahoo_symbol", "default_price", "is_active")
+    list_display = ("symbol", "name", "kind", "base_price", "volatility", "drift", "is_active")
     search_fields = ("symbol", "name")
     list_filter = ("kind", "is_active")
 
 
 @admin.register(VirtualPortfolio)
 class VirtualPortfolioAdmin(admin.ModelAdmin):
-    list_display = ("name", "user_id", "starting_balance", "current_balance", "created_at")
+    list_display = ("name", "user_id", "seed", "starting_balance", "current_balance", "created_at")
     search_fields = ("user_id", "name")
 
 

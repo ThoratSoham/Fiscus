@@ -1,23 +1,31 @@
 from decimal import Decimal
+from secrets import randbelow
 
 from django.db import models
 
 
 class Instrument(models.Model):
-    """A tradable instrument: an NSE index or a curated NSE large-cap stock."""
+    """A tradable instrument in the simulated market.
+
+    Per the Phase 6 spec: fictional-but-real-sounding companies + simulated
+    indices, each with a 'personality' — base volatility and drift bias —
+    that drives its seeded random walk (see invest/engine.py). No real
+    market data anywhere.
+    """
 
     class Kind(models.TextChoices):
         INDEX = "index", "Index"
         STOCK = "stock", "Stock"
         ETF = "etf", "ETF"
 
-    symbol = models.CharField(max_length=24, unique=True)  # display: NIFTY 50, RELIANCE
+    symbol = models.CharField(max_length=24, unique=True)  # NIFTY-SIM, ORBIT, ...
     name = models.CharField(max_length=80)
     kind = models.CharField(max_length=8, choices=Kind.choices, default=Kind.STOCK)
-    yahoo_symbol = models.CharField(max_length=24, unique=True)  # ^NSEI, RELIANCE.NS
-    # Offline fallback price — seeded from real quotes so the app still works
-    # when the free market-data feed is unreachable.
-    default_price = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("0"))
+    # Stable internal id for the deterministic price engine (was yahoo_symbol).
+    yahoo_symbol = models.CharField(max_length=24, unique=True)  # SIM-01, SIM-02, ...
+    base_price = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("100"))  # S0
+    volatility = models.FloatField(default=0.015)  # per-simulated-day sigma
+    drift = models.FloatField(default=0.0003)      # per-simulated-day drift bias
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -28,32 +36,18 @@ class Instrument(models.Model):
         return f"{self.symbol} ({self.kind})"
 
 
-class PriceSnapshot(models.Model):
-    """One stored quote per fetch. The newest row per instrument is the live price."""
-
-    instrument = models.ForeignKey(
-        Instrument, on_delete=models.CASCADE, related_name="snapshots"
-    )
-    price = models.DecimalField(max_digits=14, decimal_places=4)
-    source = models.CharField(max_length=16, default="yahoo")
-    fetched_at = models.DateTimeField(db_index=True)
-
-    class Meta:
-        ordering = ["-fetched_at"]
-
-    def __str__(self):
-        return f"{self.instrument.symbol} @ {self.price} ({self.fetched_at:%H:%M})"
-
-
 class VirtualPortfolio(models.Model):
-    """A user's paper-trading account: cash + positions.
+    """A user's paper-trading account.
 
-    Starting balance is set once (custom per user) and every P&L / return
-    figure is relative to it.
+    `seed` makes each student's market private and deterministic: every
+    price is a function of (seed, instrument, elapsed time), so two students
+    never see the same price, yet each student's path is reproducible.
+    Resetting re-rolls the seed — a genuinely fresh market, per the spec.
     """
 
     user_id = models.UUIDField(unique=True, db_index=True)  # Supabase auth uid
     name = models.CharField(max_length=80, default="My Portfolio")
+    seed = models.PositiveIntegerField(default=0)
     starting_balance = models.DecimalField(
         max_digits=14, decimal_places=2, default=Decimal("100000.00")
     )
@@ -69,14 +63,23 @@ class VirtualPortfolio(models.Model):
             user_id=user_id,
             defaults={"starting_balance": starting, "current_balance": starting},
         )
+        if not portfolio.seed:
+            portfolio.roll_seed()
         return portfolio
 
+    def roll_seed(self):
+        self.seed = randbelow(2**31) or 1
+        self.save(update_fields=["seed", "updated_at"])
+        return self.seed
+
     def reset(self):
-        """Wipe all positions + orders and restore the starting balance."""
+        """Wipe positions + orders, restore the starting balance, and re-roll
+        the market seed so a reset means a genuinely fresh market."""
         self.holdings.all().delete()
         self.orders.all().delete()
         self.current_balance = self.starting_balance
-        self.save(update_fields=["current_balance", "updated_at"])
+        self.seed = randbelow(2**31) or 1
+        self.save(update_fields=["current_balance", "seed", "updated_at"])
 
     def __str__(self):
         return f"{self.name} ({self.user_id})"
@@ -105,8 +108,8 @@ class Holding(models.Model):
 
 class Order(models.Model):
     """An order against a portfolio. Market orders fill instantly at the
-    latest snapshot price; limit/stop-loss fields are reserved for the next
-    build step (pending status)."""
+    engine price; limit/stop-loss fields are reserved for the next build
+    step (pending status)."""
 
     class Side(models.TextChoices):
         BUY = "buy", "Buy"
