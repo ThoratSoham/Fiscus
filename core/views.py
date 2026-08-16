@@ -1,8 +1,16 @@
-from django.http import HttpResponse
+from django.conf import settings
+from django.shortcuts import render
 
 
 def index(request):
-    """Skeleton landing page — proves Django is serving end to end."""
-    return HttpResponse(
-        "<h1>It works!</h1><p>Fiscus is running on Django + Supabase Postgres.</p>"
+    """Brutalist landing page with 3D hero and client-side Supabase auth."""
+    return render(
+        request,
+        "core/index.html",
+        {
+            "config": {
+                "supabase_url": settings.SUPABASE_URL,
+                "supabase_anon_key": settings.SUPABASE_ANON_KEY,
+            }
+        },
     )

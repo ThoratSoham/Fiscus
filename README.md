@@ -1,6 +1,19 @@
 # Fiscus
 
-Personal finance app. **Phase 1 — Foundation**: Django project wired to Supabase Postgres, deployable to Vercel as serverless functions.
+Personal finance app.
+
+- **Phase 1 — Foundation**: Django project wired to Supabase Postgres, deployable to Vercel as serverless functions.
+- **Phase 2 — Landing page**: brutalist design system + 3D hero (Three.js clock tower) + client-side Supabase auth.
+
+## Phase 2: Brutalist landing page
+
+- `core/templates/core/index.html` — landing template served at `/`: FISCUS wordmark, "Learn money by using it." tagline, 91% / 43% / 75%+ stat cards.
+- `core/static/core/css/brutalist.css` — the design system: raw system-ui/monospace fonts, thick black borders, hard offset shadows (no blur), blue/white/black palette, no rounded corners, visible grid lines.
+- `core/static/core/js/hero3d.js` — Three.js brutalist clock tower: unlit `MeshBasicMaterial` boxes + edge wireframes, slow auto-rotate, drag-to-orbit. Falls back to a static SVG poster on mobile, `prefers-reduced-motion`, or when WebGL is unavailable.
+- `core/static/core/js/landing.js` — Supabase Auth JS (email/password signup, login, magic link) against the anon key injected by the view. Real keys required in `.env` / Vercel env vars for auth to work.
+- `scripts/render_preview.py` — dev tool: renders the template into a standalone `preview.html` (gitignored) with CSS/JS inlined for serverless visual QA. `?force3d=1` forces the WebGL path on narrow viewports.
+
+Stat numbers/labels are placeholders — swap in the deck's figures in `index.html`.
 
 ## Stack
 
