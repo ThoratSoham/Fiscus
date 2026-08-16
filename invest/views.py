@@ -10,10 +10,10 @@ from rest_framework.response import Response
 
 from core.auth import SupabaseJWTAuthentication
 from streaks.models import Profile
-from .engine import latest_price
-from .models import Instrument, Order, VirtualPortfolio
+from .engine import latest_price, ohlc_series
+from .models import Holding, Instrument, Order, VirtualPortfolio
 from .serializers import OrderSerializer
-from .trading import apply_fill, check_pending_orders
+from .trading import apply_fill, check_pending_orders, portfolio_history
 
 AUTH = [SupabaseJWTAuthentication]
 PERM = [permissions.IsAuthenticated]
@@ -93,6 +93,7 @@ def _portfolio_payload(portfolio, at=None):
                 "current_value": str(value),
                 "pnl": str(pnl),
                 "pnl_pct": str((pnl / cost * 100).quantize(Decimal("0.01")) if cost else Decimal("0")),
+                "spark": [str(c["close"]) for c in ohlc_series(holding.instrument, portfolio.seed, days=15, end=at)],
             }
         )
 
@@ -109,6 +110,7 @@ def _portfolio_payload(portfolio, at=None):
         "recent_orders": OrderSerializer(
             portfolio.orders.select_related("instrument")[:10], many=True
         ).data,
+        "history": portfolio_history(portfolio, days=30, at=at),
     }
 
 
@@ -119,6 +121,70 @@ def portfolio(request):
     check_pending_orders(request.user.id)
     portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
     return Response(_portfolio_payload(portfolio))
+
+
+@api_view(["GET"])
+@authentication_classes(AUTH)
+@permission_classes(PERM)
+def chart_data(request, pk):
+    """Everything the instrument chart needs (spec 6.8): daily candles from
+    the engine's OHLC buckets, the student's position + pending triggers on
+    this instrument (for entry/trigger lines), and trade history (markers)."""
+    instrument = get_object_or_404(Instrument, pk=pk, is_active=True)
+    portfolio = VirtualPortfolio.get_or_create_for(request.user.id)
+    now = timezone.now()
+
+    holding = Holding.objects.filter(
+        portfolio=portfolio, instrument=instrument
+    ).first()
+
+    pending = list(
+        Order.objects.filter(
+            user_id=request.user.id,
+            instrument=instrument,
+            status=Order.Status.PENDING,
+        ).order_by("created_at")
+    )
+    fills = list(
+        Order.objects.filter(
+            user_id=request.user.id,
+            instrument=instrument,
+            status=Order.Status.FILLED,
+        ).order_by("-filled_at")[:50]
+    )
+
+    return Response(
+        {
+            "symbol": instrument.symbol,
+            "name": instrument.name,
+            "current": str(latest_price(instrument, portfolio.seed, at=now)[0]),
+            "candles": ohlc_series(instrument, portfolio.seed, days=30, end=now),
+            "holding": {
+                "quantity": str(holding.quantity),
+                "avg_price": str(holding.avg_price),
+            }
+            if holding
+            else None,
+            "pending": [
+                {
+                    "id": o.id,
+                    "side": o.side,
+                    "order_type": o.order_type,
+                    "trigger_price": str(o.trigger_price),
+                }
+                for o in pending
+            ],
+            "fills": [
+                {
+                    "side": o.side,
+                    "price": str(o.price),
+                    "quantity": str(o.quantity),
+                    "filled_at": o.filled_at.isoformat() if o.filled_at else None,
+                }
+                for o in fills
+            ],
+        }
+    )
 
 
 @api_view(["GET"])

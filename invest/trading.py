@@ -7,13 +7,14 @@ looks at their portfolio (or places another order), we walk the
 deterministic price path between placement and now and fill at the first
 tick that crossed the trigger. No polling, no background jobs.
 """
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
 from django.utils import timezone
 
-from .engine import EPOCH, TICK_SECONDS, price_at, price_series
-from .models import Holding, Order, VirtualPortfolio
+from .engine import EPOCH, TICKS_PER_DAY, TICK_SECONDS, price_at, price_series, tick_of
+from .models import Holding, Instrument, Order, VirtualPortfolio
 
 PENNY = Decimal("0.01")
 
@@ -24,10 +25,6 @@ def _q2(value):
 
 def _q4(value):
     return value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
-
-
-def tick_of(dt):
-    return max(int((dt - EPOCH).total_seconds() // TICK_SECONDS), 0)
 
 
 def crossing_mode(order):
@@ -113,6 +110,63 @@ def apply_fill(portfolio, instrument, side, quantity, fill_price, user_id, at, n
         note=note,
         filled_at=at,
     )
+
+
+def portfolio_history(portfolio, days=30, at=None):
+    """Daily portfolio value for the last `days` simulated days (spec 6.8).
+
+    Reconstructed deterministically from the order fill ledger + the engine:
+    start at the starting balance, replay fills chronologically (using their
+    recorded prices), then mark holdings to market at each day boundary with
+    the engine price. No snapshot table, no background job.
+    """
+    at = at or timezone.now()
+    end_tick = tick_of(at)
+    start_tick = max(end_tick - days * TICKS_PER_DAY, 0)
+    start_time = EPOCH + timedelta(seconds=start_tick * TICK_SECONDS)
+
+    orders = list(
+        Order.objects.filter(portfolio=portfolio)
+        .select_related("instrument")
+        .order_by("filled_at", "id")
+    )
+    instruments = {i.id: i for i in Instrument.objects.all()}
+
+    cash = portfolio.starting_balance
+    holdings = {}  # instrument_id -> Decimal quantity
+    history = []
+    oi = 0
+
+    for d in range(days + 1):
+        if d == days:
+            t = at  # final point is "now", so today's fills are included
+        else:
+            tick = start_tick + d * TICKS_PER_DAY
+            t = EPOCH + timedelta(seconds=tick * TICK_SECONDS)
+
+        while oi < len(orders) and orders[oi].filled_at and orders[oi].filled_at <= t:
+            order = orders[oi]
+            qty = holdings.get(order.instrument_id, Decimal("0"))
+            if order.side == Order.Side.BUY:
+                cash -= (order.price * order.quantity).quantize(PENNY)
+                holdings[order.instrument_id] = qty + order.quantity
+            else:
+                cash += (order.price * order.quantity).quantize(PENNY)
+                holdings[order.instrument_id] = qty - order.quantity
+            oi += 1
+
+        value = cash
+        for instrument_id, qty in holdings.items():
+            if not qty:
+                continue
+            instrument = instruments.get(instrument_id)
+            if instrument is None:
+                continue
+            price = price_at(instrument, portfolio.seed, at=t)
+            value += (price * qty).quantize(PENNY)
+
+        history.append({"date": t.date().isoformat(), "value": str(value.quantize(PENNY))})
+    return history
 
 
 def check_pending_orders(user_id, at=None):

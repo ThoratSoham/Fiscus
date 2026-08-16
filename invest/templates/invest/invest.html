@@ -46,6 +46,12 @@
       <div class="chip chip--black"><span class="chip__label">Return</span><span class="chip__value" id="chip-return">—</span></div>
     </section>
 
+    <!-- portfolio value over time -->
+    <section class="panel panel--wide">
+      <h2 class="panel__title">Portfolio value — last 30 days</h2>
+      <div class="chart-box"><canvas id="value-chart" aria-label="Line chart of portfolio value over the last 30 days"></canvas></div>
+    </section>
+
     <!-- trade -->
     <section class="panel">
       <h2 class="panel__title">Place a market order</h2>
@@ -92,6 +98,25 @@
     <section class="panel panel--wide" id="pending-panel" hidden>
       <h2 class="panel__title">Pending orders</h2>
       <div id="pending-list" class="list-box"></div>
+    </section>
+
+    <!-- price chart -->
+    <section class="panel panel--wide">
+      <h2 class="panel__title">Price chart</h2>
+      <div class="chart-toolbar">
+        <label class="field field--inline">
+          <span class="field__label">Instrument</span>
+          <select class="field__input" id="chart-instrument"></select>
+        </label>
+        <span class="chart-legend">
+          <span class="lg lg--entry">entry</span>
+          <span class="lg lg--stop">stop / sell</span>
+          <span class="lg lg--buy">buy limit</span>
+          <span class="lg lg--flag">trades</span>
+        </span>
+      </div>
+      <div class="chart-box chart-box--tall"><canvas id="candle-chart" aria-label="Daily candlestick chart of the selected simulated instrument"></canvas></div>
+      <p class="chart-note" id="chart-note"></p>
     </section>
 
     <!-- holdings -->

@@ -1,6 +1,7 @@
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.test import TestCase
 from django.utils import timezone
@@ -71,6 +72,23 @@ class EngineTests(TestCase):
         before = Order.objects.count()
         engine.price_at(self.orbit, SEED_A, at=self.t0)
         self.assertEqual(Order.objects.count(), before)
+
+    def test_ohlc_buckets_match_tick_series(self):
+        days = 2
+        end_tick = engine.tick_of(timezone.now())
+        start = end_tick - days * engine.TICKS_PER_DAY
+        prices = engine.price_series(self.orbit, SEED_A, start, end_tick)
+        candles = engine.ohlc_series(self.orbit, SEED_A, days=days)
+
+        # full buckets + one partial (today) candle
+        self.assertEqual(len(candles), days + 1)
+        self.assertEqual(candles[0]["open"], prices[0])
+        self.assertEqual(candles[0]["close"], prices[engine.TICKS_PER_DAY - 1])
+        self.assertEqual(candles[-1]["close"], prices[-1])  # partial today
+        for c in candles:
+            self.assertGreaterEqual(Decimal(c["high"]), Decimal(c["low"]))
+            self.assertGreaterEqual(Decimal(c["high"]), Decimal(c["close"]))
+            self.assertLessEqual(Decimal(c["low"]), Decimal(c["close"]))
 
 
 class InvestApiTests(TestCase):
@@ -276,6 +294,53 @@ class InvestApiTests(TestCase):
             format="json",
         )
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_chart_requires_auth(self):
+        res = APIClient().get(f"/api/invest/chart/{self.orbit.id}/")
+        self.assertEqual(res.status_code, 401)
+
+    def test_chart_returns_candles_and_position(self):
+        self._buy(self.orbit, 10)
+        res = self.client.get(f"/api/invest/chart/{self.orbit.id}/")
+        self.assertEqual(res.status_code, 200)
+        data = res.data
+        self.assertEqual(data["symbol"], "ORBIT")
+        self.assertEqual(len(data["candles"]), 31)  # 30 full days + today
+        self.assertIsNotNone(data["holding"])
+        self.assertEqual(Decimal(data["holding"]["quantity"]), Decimal("10"))
+        self.assertGreater(Decimal(data["current"]), 0)
+
+    def test_chart_shows_pending_trigger(self):
+        trigger = (engine.price_at(self.orbit, SEED_A) * Decimal("0.5")).quantize(Decimal("0.01"))
+        self.client.post(
+            "/api/invest/orders/",
+            {"instrument_id": self.orbit.id, "side": "buy", "order_type": "limit",
+             "quantity": 5, "trigger_price": str(trigger)},
+            format="json",
+        )
+        data = self.client.get(f"/api/invest/chart/{self.orbit.id}/").data
+        self.assertEqual(len(data["pending"]), 1)
+        self.assertEqual(data["pending"][0]["order_type"], "limit")
+        self.assertEqual(Decimal(data["pending"][0]["trigger_price"]), trigger)
+
+    def test_portfolio_history_flat_without_trades(self):
+        hist = self.client.get("/api/invest/portfolio/").data["history"]
+        self.assertEqual(len(hist), 31)  # 30 days + today
+        values = {Decimal(h["value"]) for h in hist}
+        self.assertEqual(values, {Decimal("100000.00")})
+        dates = [h["date"] for h in hist]
+        self.assertEqual(dates, sorted(dates))
+
+    def test_portfolio_history_reconstructs_ledger(self):
+        res = self._buy(self.orbit, 10)
+        fill = Decimal(res.data["order"]["price"])
+        with mock.patch("invest.trading.price_at", return_value=Decimal("100")):
+            hist = self.client.get("/api/invest/portfolio/").data["history"]
+        values = [Decimal(h["value"]) for h in hist]
+        # days before the buy: untouched starting balance
+        self.assertEqual(values[0], Decimal("100000.00"))
+        # last day: cash after the buy + 10 units marked at the fixed price
+        self.assertEqual(values[-1], Decimal("101000.00") - fill * 10)
 
 
 class LimitStopOrderTests(TestCase):

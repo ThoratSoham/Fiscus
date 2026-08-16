@@ -229,6 +229,94 @@
   color: #0b0b0d;
 }
 
+/* charts */
+.chart-box {
+  height: 140px;
+  width: 100%;
+  border: 2px solid #0b0b0d;
+  background: #ffffff;
+}
+
+.chart-box--tall {
+  height: 300px;
+}
+
+.chart-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.field--inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.lg::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top-width: 3px;
+  border-top-style: solid;
+}
+
+.lg--entry::before {
+  border-top-color: #0b0b0d;
+}
+
+.lg--stop::before {
+  border-top-color: #e00000;
+  border-top-style: dashed;
+}
+
+.lg--buy::before {
+  border-top-color: #0038ff;
+  border-top-style: dashed;
+}
+
+.lg--flag::before {
+  border-top-color: #0b0b0d;
+  border-top-style: dotted;
+}
+
+.chart-note {
+  margin-top: 10px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.spark {
+  border: 1px solid #0b0b0d;
+  background: #ffffff;
+  display: block;
+  width: 96px;
+  height: 34px;
+}
+
+.spark-cell {
+  text-align: center;
+}
+
 @media (max-width: 720px) {
   .panel--wide {
     grid-column: auto;

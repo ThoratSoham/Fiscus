@@ -86,7 +86,13 @@ Setup: `manage.py migrate` (schema + seeded simulated roster). No Supabase/RLS c
 
 Also in this step: `core/auth.py` accepts **ES256** tokens and uses a 60s leeway for clock skew — Supabase's signing key is EC now, and serverless clocks can lag by a few seconds, so without both fixes valid logins would 401.
 
-Next per the spec's build order: short-selling with margin, scripted-event tuning, charts + position visualizations (OHLC is a natural byproduct of the 15-min buckets), leaderboard + social feed, options (Black-Scholes off the simulated price).
+**Charts + position visualizations (spec 6.8)** — all rendered with custom brutalist canvas renderers (no chart library):
+- `engine.ohlc_series` buckets the deterministic price path into **daily OHLC candles** (including today's partial candle) — the spec's "OHLC is a natural byproduct of the engine" design, no historical-data source.
+- `trading.portfolio_history` **replays the order ledger** to reconstruct daily portfolio value — no `PortfolioSnapshot` table, no cron; the chart matches the live value by construction (the final point is "now").
+- `GET /api/invest/chart/<instrument>/` returns candles plus the position overlay: entry (avg-price) line, **dashed pending-trigger lines** (solid once filled), and buy/sell trade markers from the fill history. The portfolio payload now carries `history` and each holding carries a `spark` series.
+- UI: **portfolio-value line chart** (30 days), **instrument candlestick chart** with a legend (solid black entry / red dashed stop / blue dashed buy-limit / dotted trade flags) and an instrument selector synced to the order form, plus a **sparkline per holding** in the holdings table. The 5s ticker re-renders the live candle.
+
+Next per the spec's build order: short-selling with margin, scripted-event tuning, leaderboard + social feed, options (Black-Scholes off the simulated price).
 
 ## Stack
 
