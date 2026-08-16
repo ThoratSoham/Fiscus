@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     "core",
     "track",
     "learn",
+    "streaks",
+    "invest",
 ]
 
 MIDDLEWARE = [
@@ -129,3 +131,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SUPABASE_URL = env("SUPABASE_URL")
 SUPABASE_ANON_KEY = env("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_ROLE_KEY = env("SUPABASE_SERVICE_ROLE_KEY")
+
+# Secret for the Vercel Cron endpoint (sent as `Authorization: Bearer`).
+# Required in production; leave empty to allow cron calls in DEBUG mode only.
+CRON_SECRET = env("CRON_SECRET", default="")

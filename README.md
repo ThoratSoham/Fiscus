@@ -39,6 +39,23 @@ DATABASE_URL=sqlite:///test.db .venv/Scripts/python.exe manage.py test track lea
 - Quiz (`learn/static/learn/js/learn.js`): vanilla JS, instant per-question feedback with no page reload, question locking, auto-save on completion.
 - `POST /api/lessons/<id>/attempt/` (Supabase JWT) — verifies answers, records a `QuizAttempt`, and returns score + the user's day-based streak (consecutive days with a completed quiz; same-day repeats don't inflate it). `GET /api/lessons/attempts/` returns best scores per lesson.
 - `SupabaseJWTAuthentication` moved to `core/auth.py` so Track and Learn share it (track imports updated; 24 tests pass).
+
+## Phase 5: Streaks, badges, auth polish, Invest stubs
+
+- `streaks/models.py` — `Profile`: one int (`streak_count`) + one boolean per badge (7-Day Streak, Budget Keeper, First Trade, Course Complete). `record_activity()` drives the day-based streak (same-day no-op, next-day +1, gap resets to 1); `evaluate_badges()` recomputes booleans and returns newly unlocked names.
+- `POST /api/cron/streaks/` — Vercel Cron endpoint (`vercel.json` crons, midnight UTC) that resets stale streaks; requires `CRON_SECRET` (`Authorization: Bearer`) in production.
+- Badge unlocks: quiz completion (7-Day Streak, Course Complete), budget creation (Budget Keeper), holding creation (First Trade — via the stubbed Invest models). Unlocks are returned as `unlocked_badges` and toasted in the UI (brutalist toast cards + badge grid on the dashboard, streak shown live).
+- Auth polish: Track/Learn pages now redirect to login without a session, dashboard API helper refreshes the Supabase session once on a 401 before redirecting, logout on every logged-in page.
+- `invest/` — stub models only (`VirtualPortfolio`, `Holding`), migration applied to Supabase, **no UI** — Phase 6 builds on them.
+- 38 tests pass (learn 12, track 12, streaks 14).
+
+### Production deploy checklist
+
+1. Merge the Phase 4+5 branch into `main`; Vercel redeploys.
+2. Vercel env vars (Settings → Environment Variables): `DATABASE_URL`, `DJANGO_SECRET_KEY`, `DEBUG=False`, `ALLOWED_HOSTS=fiscus-one.vercel.app`, `CSRF_TRUSTED_ORIGINS=https://fiscus-one.vercel.app`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and **`CRON_SECRET`** (any strong random string — Vercel Cron sends it as `Authorization: Bearer`).
+3. Cron: with `CRON_SECRET` set, the `vercel.json` cron (`0 0 * * *`) hits `/api/cron/streaks/` nightly to reset stale streaks.
+4. Migrations already applied to Supabase (`track`, `learn`, `streaks`, `invest`); re-run `manage.py migrate` after deploy if models change.
+5. Smoke the loop on the live URL: sign up → log an expense → do a lesson → watch the streak and badges panel update.
 ```
 
 ## Stack

@@ -37,6 +37,8 @@ def inline(html, css_assets, js_assets):
 
     Each asset is a tuple (url_path, disk_path) where url_path is the path
     Django renders after STATIC_URL and disk_path is relative to ROOT.
+    After inlining, the JS is patched so the preview never redirects to
+    the login page (the static preview has no session).
     """
     for url_path, disk_path in css_assets:
         html = html.replace(
@@ -54,6 +56,10 @@ def inline(html, css_assets, js_assets):
                 f'<script src="/static/{url_path}" defer></script>',
                 "<script>\n" + read_static(disk_path) + "\n</script>",
             )
+    html = html.replace(
+        'var previewMode = new URLSearchParams(window.location.search).has("preview");',
+        "var previewMode = true;",
+    )
     return html
 
 

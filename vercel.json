@@ -19,5 +19,11 @@
       "src": "/(.*)",
       "dest": "fiscus/wsgi.py"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/streaks/",
+      "schedule": "0 0 * * *"
+    }
   ]
 }

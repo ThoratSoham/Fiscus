@@ -450,6 +450,102 @@ body {
 }
 
 /* ==========================================================================
+   Streaks & badges
+   ========================================================================== */
+.streak-line {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.9rem;
+}
+
+.badge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 1rem 0.6rem;
+  border: var(--border-w) solid var(--black);
+  font-family: var(--font-mono);
+  font-weight: 900;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9a9aa3;
+  background: var(--white);
+}
+
+.badge-card--unlocked {
+  background: var(--blue);
+  color: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.badge-card__icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.badge-card--locked .badge-card__icon {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+/* ---- unlock toasts ---- */
+.toast-wrap {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  pointer-events: none;
+}
+
+.toast {
+  font-family: var(--font-mono);
+  font-weight: 900;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--white);
+  background: var(--blue);
+  border: var(--border-w) solid var(--black);
+  box-shadow: 6px 6px 0 0 var(--black);
+  padding: 0.8rem 1.1rem;
+  max-width: 300px;
+  animation: toast-in 160ms ease-out;
+}
+
+.toast--info {
+  background: var(--black);
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 860px) {
+  .badge-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ==========================================================================
    Responsive
    ========================================================================== */
 @media (max-width: 860px) {

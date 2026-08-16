@@ -8,6 +8,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 
 from core.auth import SupabaseJWTAuthentication
+from streaks.models import Profile
 from .models import Budget, Category, Expense
 from .serializers import BudgetSerializer, CategorySerializer, ExpenseSerializer
 
@@ -43,6 +44,8 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user_id=self.request.user.id)
         Budget.recompute_for_user(self.request.user.id)
+        # logging an expense counts as daily activity for the streak
+        Profile.get_or_create_for(self.request.user.id).record_activity()
 
     def perform_update(self, serializer):
         serializer.save()
@@ -60,6 +63,13 @@ class BudgetViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Budget.objects.filter(user_id=self.request.user.id)
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        profile = Profile.get_or_create_for(request.user.id)
+        profile.record_activity()
+        response.data["unlocked_badges"] = profile.evaluate_badges()
+        return response
 
     def perform_create(self, serializer):
         serializer.save(user_id=self.request.user.id)

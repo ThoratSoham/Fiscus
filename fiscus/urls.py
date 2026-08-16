@@ -7,4 +7,5 @@ urlpatterns = [
     path("", include("core.urls")),
     path("", include("track.urls")),
     path("", include("learn.urls")),
+    path("", include("streaks.urls")),
 ]
