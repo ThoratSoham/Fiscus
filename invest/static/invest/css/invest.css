@@ -55,6 +55,17 @@
   grid-column: 1 / -1;
 }
 
+.panel--danger {
+  border-color: #e00000;
+  box-shadow: 6px 6px 0 0 #e00000;
+  background: #fff5f5;
+}
+
+.panel--danger .panel__title {
+  color: #e00000;
+  border-bottom-color: #e00000;
+}
+
 .panel__title {
   font-size: 18px;
   font-weight: 800;
@@ -100,6 +111,11 @@
 .chip--black {
   background: #0b0b0d;
   color: #ffffff;
+}
+
+.chip--red {
+  background: #ffffff;
+  color: #e00000;
 }
 
 .chip__label {
@@ -202,6 +218,11 @@
 
 .tag--limit {
   background: #0038ff;
+  color: #ffffff;
+}
+
+.tag--short {
+  background: #e00000;
   color: #ffffff;
 }
 

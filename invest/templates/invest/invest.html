@@ -38,10 +38,21 @@
       </div>
     </section>
 
+    <!-- short-selling warning (spec 6.5) -->
+    <section class="panel panel--danger" id="short-banner" hidden>
+      <h2 class="panel__title">⚠ Short position open</h2>
+      <p class="panel__note">You've sold shares you don't own. If the price <strong>rises</strong>, your loss is
+      <strong>unlimited</strong> — you must buy back (cover) to close. A margin reserve is locked out of your
+      cash while the short is open, and if the short's value ever exceeds your cash, it is force-closed as a
+      <strong>margin call</strong>.</p>
+    </section>
+
     <!-- summary chips -->
     <section class="chips" id="summary-chips">
       <div class="chip chip--blue"><span class="chip__label">Portfolio value</span><span class="chip__value" id="chip-value">—</span></div>
       <div class="chip"><span class="chip__label">Cash</span><span class="chip__value" id="chip-cash">—</span></div>
+      <div class="chip"><span class="chip__label">Available cash</span><span class="chip__value" id="chip-available">—</span></div>
+      <div class="chip"><span class="chip__label">Margin reserved</span><span class="chip__value" id="chip-margin">—</span></div>
       <div class="chip"><span class="chip__label">Invested</span><span class="chip__value" id="chip-invested">—</span></div>
       <div class="chip chip--black"><span class="chip__label">Return</span><span class="chip__value" id="chip-return">—</span></div>
     </section>

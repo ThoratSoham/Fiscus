@@ -138,7 +138,7 @@ class InvestApiTests(TestCase):
     def test_insufficient_cash_rejected(self):
         res = self._buy(self.orbit, 1000000)  # way over ₹100k
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Insufficient cash", res.data["detail"])
+        self.assertIn("Insufficient available cash", res.data["detail"])
         portfolio = VirtualPortfolio.objects.get(user_id=self.user_a)
         self.assertEqual(portfolio.current_balance, Decimal("100000.00"))
         self.assertEqual(Holding.objects.count(), 0)
@@ -173,15 +173,25 @@ class InvestApiTests(TestCase):
             expected_cash.quantize(Decimal("0.01")),
         )
 
-    def test_oversell_rejected(self):
+    def test_oversell_opens_short(self):
+        """Selling beyond the long position opens a short (spec 6.5)."""
         self._buy(self.orbit, 2)
         res = self._buy(self.orbit, 5, side="sell")
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("don't hold enough", res.data["detail"])
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        holding = Holding.objects.get(
+            portfolio=VirtualPortfolio.objects.get(user_id=self.user_a),
+            instrument=self.orbit,
+        )
+        self.assertEqual(holding.quantity, Decimal("-3"))
 
-    def test_sell_without_position_rejected(self):
+    def test_sell_without_position_opens_short(self):
         res = self._buy(self.orbit, 1, side="sell")
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        holding = Holding.objects.get(
+            portfolio=VirtualPortfolio.objects.get(user_id=self.user_a),
+            instrument=self.orbit,
+        )
+        self.assertEqual(holding.quantity, Decimal("-1"))
 
     def test_portfolio_aggregation_is_internally_consistent(self):
         self._buy(self.orbit, 10)
@@ -341,6 +351,180 @@ class InvestApiTests(TestCase):
         self.assertEqual(values[0], Decimal("100000.00"))
         # last day: cash after the buy + 10 units marked at the fixed price
         self.assertEqual(values[-1], Decimal("101000.00") - fill * 10)
+
+
+class ShortSellingTests(TestCase):
+    """Short-selling with margin reserve (spec 6.5)."""
+
+    def setUp(self):
+        self.user_a = str(uuid.uuid4())
+        self.orbit = Instrument.objects.get(yahoo_symbol="SIM-04")
+        VirtualPortfolio.objects.create(
+            user_id=self.user_a, seed=SEED_A,
+            starting_balance=Decimal("100000.00"), current_balance=Decimal("100000.00"),
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=SupabaseUser(id=self.user_a))
+
+    def _order(self, side, quantity, order_type="market", trigger=None):
+        payload = {
+            "instrument_id": self.orbit.id, "side": side,
+            "quantity": quantity, "order_type": order_type,
+        }
+        if trigger is not None:
+            payload["trigger_price"] = str(trigger)
+        return self.client.post("/api/invest/orders/", payload, format="json")
+
+    def _holding(self):
+        return Holding.objects.get(
+            portfolio=VirtualPortfolio.objects.get(user_id=self.user_a),
+            instrument=self.orbit,
+        )
+
+    def _current_price(self):
+        return engine.price_at(self.orbit, SEED_A)
+
+    def test_short_sell_credits_cash_and_creates_negative_holding(self):
+        res = self._order("sell", 10)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        fill = Decimal(res.data["order"]["price"])
+        holding = self._holding()
+        self.assertEqual(holding.quantity, Decimal("-10"))
+        self.assertEqual(holding.avg_price, fill)
+        portfolio = VirtualPortfolio.objects.get(user_id=self.user_a)
+        self.assertEqual(
+            portfolio.current_balance,
+            Decimal("100000.00") + (fill * 10).quantize(Decimal("0.01")),
+        )
+
+    def test_margin_reserve_and_available_cash(self):
+        self._order("sell", 10)
+        data = self.client.get("/api/invest/portfolio/").data
+        price = self._current_price()
+        expected_reserve = (Decimal("0.5") * 10 * price).quantize(Decimal("0.01"))
+        self.assertEqual(Decimal(data["margin_reserve"]), expected_reserve)
+        self.assertEqual(
+            Decimal(data["available_cash"]),
+            (Decimal(data["cash"]) - expected_reserve).quantize(Decimal("0.01")),
+        )
+        self.assertEqual(Decimal(data["margin_rate"]), Decimal("0.5"))
+
+    def test_short_capped_by_available_cash(self):
+        res = self._order("sell", 1000000)  # short value far exceeds ₹100k
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Short too large", res.data["detail"])
+        self.assertEqual(Holding.objects.count(), 0)
+
+    def test_short_pnl_profits_when_price_below_entry(self):
+        price = self._current_price()
+        self._order("sell", 10)
+        holding = self._holding()
+        holding.avg_price = (price * Decimal("1.2")).quantize(Decimal("0.0001"))
+        holding.save(update_fields=["avg_price"])
+        data = self.client.get("/api/invest/portfolio/").data
+        row = data["holdings"][0]
+        self.assertTrue(row["short"])
+        self.assertEqual(Decimal(row["quantity"]), Decimal("-10"))
+        expected = (holding.avg_price - price) * 10  # (avg − price) × |qty|
+        self.assertEqual(Decimal(row["pnl"]), expected.quantize(Decimal("0.01")))
+        self.assertGreater(Decimal(row["pnl"]), 0)
+
+    def test_short_pnl_losses_when_price_above_entry(self):
+        price = self._current_price()
+        self._order("sell", 10)
+        holding = self._holding()
+        holding.avg_price = (price * Decimal("0.8")).quantize(Decimal("0.0001"))
+        holding.save(update_fields=["avg_price"])
+        data = self.client.get("/api/invest/portfolio/").data
+        self.assertLess(Decimal(data["holdings"][0]["pnl"]), 0)
+
+    def test_cover_reduces_then_closes_short(self):
+        self._order("sell", 10)
+        avg = self._holding().avg_price
+        res = self._order("buy", 4)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        holding = self._holding()
+        self.assertEqual(holding.quantity, Decimal("-6"))
+        self.assertEqual(holding.avg_price, avg)  # partial cover keeps entry
+        self._order("buy", 6)
+        self.assertFalse(Holding.objects.filter(instrument=self.orbit).exists())
+
+    def test_cover_flips_short_to_long_at_cover_price(self):
+        self._order("sell", 10)
+        res = self._order("buy", 15)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        cover_price = Decimal(res.data["order"]["price"])
+        holding = self._holding()
+        self.assertEqual(holding.quantity, Decimal("5"))
+        self.assertEqual(holding.avg_price, cover_price)
+
+    def test_extend_short_uses_weighted_avg(self):
+        p1 = Decimal(self._order("sell", 10).data["order"]["price"])
+        p2 = Decimal(self._order("sell", 5).data["order"]["price"])
+        holding = self._holding()
+        self.assertEqual(holding.quantity, Decimal("-15"))
+        expected = ((-10 * p1 - 5 * p2) / -15).quantize(Decimal("0.0001"))
+        self.assertEqual(holding.avg_price, expected)
+
+    def test_margin_call_force_closes_uncoverable_short(self):
+        portfolio = VirtualPortfolio.objects.get(user_id=self.user_a)
+        portfolio.current_balance = Decimal("1000.00")
+        portfolio.save(update_fields=["current_balance"])
+        Holding.objects.create(
+            portfolio=portfolio, instrument=self.orbit,
+            quantity=Decimal("-1000"), avg_price=Decimal("1.00"),
+        )
+        changed = trading.check_pending_orders(self.user_a)
+        self.assertFalse(Holding.objects.filter(instrument=self.orbit).exists())
+        self.assertEqual(len(changed), 1)
+        call = changed[0]
+        self.assertEqual(call.status, Order.Status.FILLED)
+        self.assertEqual(call.side, "buy")
+        self.assertIn("margin call", call.note)
+        # cash reflects the forced buy-back at the current price (goes negative)
+        price = self._current_price()
+        portfolio.refresh_from_db()
+        self.assertEqual(
+            portfolio.current_balance,
+            Decimal("1000.00") - (price * 1000).quantize(Decimal("0.01")),
+        )
+
+    def test_margin_call_runs_on_portfolio_read(self):
+        portfolio = VirtualPortfolio.objects.get(user_id=self.user_a)
+        portfolio.current_balance = Decimal("500.00")
+        portfolio.save(update_fields=["current_balance"])
+        Holding.objects.create(
+            portfolio=portfolio, instrument=self.orbit,
+            quantity=Decimal("-2000"), avg_price=Decimal("1.00"),
+        )
+        data = self.client.get("/api/invest/portfolio/").data
+        self.assertEqual(data["holdings"], [])  # closed before aggregation
+        price = self._current_price()
+        self.assertEqual(
+            Decimal(data["cash"]),
+            (Decimal("500.00") - (price * 2000).quantize(Decimal("0.01"))),
+        )
+
+    def test_pending_sell_limit_can_open_short(self):
+        trigger = self._current_price() * Decimal("0.5")  # crossed instantly
+        res = self._order("sell", 5, order_type="limit", trigger=trigger)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(res.data["order"]["status"], "filled")
+        self.assertEqual(self._holding().quantity, Decimal("-5"))
+
+    def test_portfolio_value_includes_short_mark(self):
+        self._order("sell", 10)
+        data = self.client.get("/api/invest/portfolio/").data
+        price = self._current_price()
+        expected = (
+            Decimal(data["cash"]) - (price * 10).quantize(Decimal("0.01"))
+        ).quantize(Decimal("0.01"))
+        self.assertEqual(Decimal(data["portfolio_value"]), expected)
+
+    def test_first_trade_badge_from_short(self):
+        res = self._order("sell", 1)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data["unlocked_badges"], ["First Trade"])
 
 
 class LimitStopOrderTests(TestCase):

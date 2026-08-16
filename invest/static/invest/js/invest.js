@@ -161,7 +161,9 @@
       });
       fresh.forEach(function (o) {
         if (o.status === "filled") {
-          showToasts(["Order filled: " + o.side.toUpperCase() + " " + Number(o.quantity) + " " + o.instrument_symbol + " @ " + money(o.price)]);
+          var msg = "Order filled: " + o.side.toUpperCase() + " " + Number(o.quantity) + " " + o.instrument_symbol + " @ " + money(o.price);
+          if (o.note && o.note.indexOf("margin call") === 0) msg += " — " + o.note;
+          showToasts([msg]);
         } else if (o.status === "cancelled") {
           showToasts(["Order cancelled: " + o.instrument_symbol + (o.note ? " — " + o.note : "")]);
         }
@@ -175,12 +177,21 @@
     renderMarketStatus();
     renderSelect();
     renderSummary();
+    renderBanner();
     renderValueChart();
     renderCandles();
     renderHoldings();
     renderInstruments();
     renderOrders();
     renderPending();
+  }
+
+  function renderBanner() {
+    var p = state.portfolio;
+    var banner = document.getElementById("short-banner");
+    if (!banner) return;
+    var hasShort = !!(p && p.holdings && p.holdings.some(function (h) { return Number(h.quantity) < 0; }));
+    banner.hidden = !hasShort;
   }
 
   /* ---- charting (spec 6.8) — custom brutalist canvas renderers ---- */
@@ -336,7 +347,7 @@
     ctx.fillRect(px(n - 1) - 3, py(Number(chart.current)) - 3, 6, 6);
   }
 
-  function drawSpark(canvas, closes, avg) {
+  function drawSpark(canvas, closes, avg, isShort) {
     var dim = setupCanvas(canvas);
     var ctx = dim.ctx, w = dim.w, h = dim.h;
     if (!closes || closes.length < 2) return;
@@ -349,7 +360,7 @@
     function px(i) { return 2 + (w - 4) * (i / (n - 1)); }
     function py(v) { return h - 2 - (h - 4) * ((v - min) / (max - min)); }
     var cur = values[n - 1];
-    var profit = cur >= avg;
+    var profit = isShort ? cur <= avg : cur >= avg;  // shorts profit when price falls below entry
     ctx.strokeStyle = profit ? "rgba(10,125,44,0.25)" : "rgba(224,0,0,0.25)";
     ctx.lineWidth = 6;
     ctx.beginPath();
@@ -370,7 +381,7 @@
     document.querySelectorAll("canvas[data-spark]").forEach(function (canvas) {
       try {
         var data = JSON.parse(canvas.getAttribute("data-spark"));
-        drawSpark(canvas, data.closes, Number(data.avg));
+        drawSpark(canvas, data.closes, Number(data.avg), !!data.short);
       } catch (e) { /* skip */ }
     });
   }
@@ -439,11 +450,14 @@
     var opt = select.selectedOptions[0];
     if (!opt) { el.textContent = ""; return; }
     var price = Number(opt.getAttribute("data-price"));
+    var side = document.getElementById("order-side").value;
     if (type === "market") {
       var total = price * Number(qty || 0);
-      var side = document.getElementById("order-side").value;
       el.textContent = "Fills instantly at the current simulated price — " +
         "approximately " + money(total) + (side === "buy" ? " cost." : " credited.");
+      if (side === "sell") {
+        el.textContent += " Selling more than you hold opens a SHORT — a 50% margin reserve is locked, and a short can lose more than it gains if the price rises.";
+      }
       return;
     }
     var trigger = document.getElementById("order-trigger").value;
@@ -474,6 +488,12 @@
     if (!p) return;
     document.getElementById("chip-value").textContent = money(p.portfolio_value);
     document.getElementById("chip-cash").textContent = money(p.cash);
+    var avail = document.getElementById("chip-available");
+    avail.textContent = money(p.available_cash);
+    avail.style.color = Number(p.available_cash) < 0 ? PALETTE.red : "inherit";
+    var margin = document.getElementById("chip-margin");
+    margin.textContent = money(p.margin_reserve);
+    margin.style.color = Number(p.margin_reserve) > 0 ? PALETTE.red : "inherit";
     document.getElementById("chip-invested").textContent = money(p.invested);
     var ret = document.getElementById("chip-return");
     ret.textContent = signedMoney(p.return_amount) + " (" + signedMoney(p.return_pct) + "%)";
@@ -499,12 +519,15 @@
         p.holdings.map(function (h) {
           var pnl = Number(h.pnl);
           var pnlColor = pnl < 0 ? PALETTE.red : (pnl > 0 ? PALETTE.green : "inherit");
-          var sparkData = JSON.stringify({ closes: h.spark || [], avg: Number(h.avg_price) })
+          var sparkData = JSON.stringify({ closes: h.spark || [], avg: Number(h.avg_price), short: !!h.short })
             .replace(/"/g, "&quot;");
+          var qtyTag = h.short
+            ? '<span class="tag tag--short">SHORT</span> ' + Number(h.quantity)
+            : Number(h.quantity);
           return (
             "<tr>" +
               "<td><strong>" + esc(h.symbol) + "</strong><br><span class=\"muted\">" + esc(h.name) + "</span></td>" +
-              '<td class="num">' + Number(h.quantity) + "</td>" +
+              '<td class="num">' + qtyTag + "</td>" +
               '<td class="num">' + money(h.avg_price) + "</td>" +
               '<td class="num">' + money(h.last_price) + "</td>" +
               '<td class="num">' + money(h.invested) + "</td>" +

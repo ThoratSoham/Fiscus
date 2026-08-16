@@ -157,6 +157,9 @@ INVEST_MOCK = """{
   "portfolio": {
     "starting_balance": "100000.00",
     "cash": "36107.00",
+    "available_cash": "31920.55",
+    "margin_reserve": "4186.45",
+    "margin_rate": "0.5",
     "invested": "63893.00",
     "portfolio_value": "100130.00",
     "return_amount": "130.00",
@@ -165,7 +168,8 @@ INVEST_MOCK = """{
       {"instrument_id": 4, "symbol": "ORBIT", "name": "Orbit Motors", "quantity": "10", "avg_price": "480.0000", "last_price": "493.60", "invested": "4800.00", "current_value": "4936.00", "pnl": "136.00", "pnl_pct": "2.83", "stale": false},
       {"instrument_id": 1, "symbol": "NIFTY-SIM", "name": "Nifty Sim Index", "quantity": "0.5", "avg_price": "24500.0000", "last_price": "24531.75", "invested": "12250.00", "current_value": "12265.88", "pnl": "15.88", "pnl_pct": "0.13", "stale": false},
       {"instrument_id": 5, "symbol": "PIXEL", "name": "Pixelworks Tech", "quantity": "10", "avg_price": "1450.0000", "last_price": "1472.10", "invested": "14500.00", "current_value": "14721.00", "pnl": "221.00", "pnl_pct": "1.52", "stale": false},
-      {"instrument_id": 6, "symbol": "DUNE", "name": "Dune Metals", "quantity": "20", "avg_price": "610.0000", "last_price": "594.30", "invested": "12200.00", "current_value": "11886.00", "pnl": "-314.00", "pnl_pct": "-2.57", "stale": false}
+      {"instrument_id": 6, "symbol": "DUNE", "name": "Dune Metals", "quantity": "20", "avg_price": "610.0000", "last_price": "594.30", "invested": "12200.00", "current_value": "11886.00", "pnl": "-314.00", "pnl_pct": "-2.57", "stale": false},
+      {"instrument_id": 7, "symbol": "SOLARIS", "name": "Solaris Energy", "quantity": "-50", "short": true, "avg_price": "115.0000", "last_price": "101.85", "invested": "5750.00", "current_value": "5092.50", "pnl": "657.50", "pnl_pct": "11.43", "stale": false}
     ],
     "recent_orders": [
       {"id": 1, "instrument_symbol": "ORBIT", "side": "buy", "quantity": "10", "order_type": "limit", "status": "pending", "trigger_price": "470.0000", "price": null, "created_at": "2026-08-16T10:05:00Z"},
