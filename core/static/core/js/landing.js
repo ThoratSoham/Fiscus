@@ -78,6 +78,23 @@
     });
   });
 
+  /* Google OAuth — Supabase redirects back to the Site URL with a session */
+  var googleBtn = document.getElementById("auth-google");
+  if (googleBtn) {
+    googleBtn.addEventListener("click", function () {
+      if (!client) {
+        setStatus(
+          "Supabase isn't configured yet — add your keys to .env (or the Vercel env vars) and redeploy.",
+          "error"
+        );
+        return;
+      }
+      client.auth.signInWithOAuth({ provider: "google" }).then(function (res) {
+        if (res.error) setStatus(res.error.message, "error");
+      });
+    });
+  }
+
   /* Deep link from the dashboard: scroll straight to the auth form. */
   if (new URLSearchParams(window.location.search).has("auth")) {
     var target = document.getElementById("auth");

@@ -9,7 +9,7 @@ Personal finance app.
 
 - `core/templates/core/index.html` — landing template served at `/`: FISCUS wordmark, "Learn money by using it." tagline, 91% / 43% / 75%+ stat cards.
 - `core/static/core/css/brutalist.css` — the design system: raw system-ui/monospace fonts, thick black borders, hard offset shadows (no blur), blue/white/black palette, no rounded corners, visible grid lines.
-- `core/static/core/js/hero3d.js` — Three.js brutalist clock tower: unlit `MeshBasicMaterial` boxes + edge wireframes, slow auto-rotate, drag-to-orbit. Falls back to a static SVG poster on mobile, `prefers-reduced-motion`, or when WebGL is unavailable.
+- `core/static/core/js/hero3d.js` — Three.js brutalist Bombay Stock Exchange (Dalal Street tower with vertical facade slats, market-up ticker arrow, and the charging bull on a plinth): unlit `MeshBasicMaterial` boxes + edge wireframes, slow auto-rotate, drag-to-orbit. Falls back to a static SVG poster on mobile, `prefers-reduced-motion`, or when WebGL is unavailable.
 - `core/static/core/js/landing.js` — Supabase Auth JS (email/password signup, login, magic link) against the anon key injected by the view. Real keys required in `.env` / Vercel env vars for auth to work.
 - `scripts/render_preview.py` — dev tool: renders the template into a standalone `preview.html` (gitignored) with CSS/JS inlined for serverless visual QA. `?force3d=1` forces the WebGL path on narrow viewports.
 
@@ -48,6 +48,16 @@ DATABASE_URL=sqlite:///test.db .venv/Scripts/python.exe manage.py test track lea
 - Auth polish: Track/Learn pages now redirect to login without a session, dashboard API helper refreshes the Supabase session once on a 401 before redirecting, logout on every logged-in page.
 - `invest/` — stub models only (`VirtualPortfolio`, `Holding`), migration applied to Supabase, **no UI** — Phase 6 builds on them.
 - 38 tests pass (learn 12, track 12, streaks 14).
+
+### Google sign-in (Supabase OAuth)
+
+1. **Google Cloud Console** → APIs & Services → Credentials → Create OAuth 2.0 Client ID (Web application):
+   - **Authorized JavaScript origins:** `https://fiscus-one.vercel.app` (add `http://localhost:8765` for local dev)
+   - **Authorized redirect URIs:** `https://yawvyibadiiacfstlkew.supabase.co/auth/v1/callback`
+2. **Supabase** → Authentication → Providers → Google: enable, paste the Client ID + Client Secret.
+3. Make sure **Authentication → URL Configuration → Site URL** is `https://fiscus-one.vercel.app`.
+
+The landing page's "Sign in with Google" button calls `supabase.auth.signInWithOAuth({ provider: "google" })`; after the callback the session is active and the dashboard link appears.
 
 ### Production deploy checklist
 
