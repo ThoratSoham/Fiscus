@@ -60,6 +60,10 @@ def inline(html, css_assets, js_assets):
         'var previewMode = new URLSearchParams(window.location.search).has("preview");',
         "var previewMode = true;",
     )
+    html = html.replace(
+        'const force3d = new URLSearchParams(location.search).has("force3d");',
+        "const force3d = true;",
+    )
     return html
 
 
