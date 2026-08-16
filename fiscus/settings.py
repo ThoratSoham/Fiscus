@@ -29,6 +29,11 @@ DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
+# Origins permitted to submit CSRF-protected POSTs. Same-origin POSTs are
+# already covered by ALLOWED_HOSTS; add this for custom domains or future
+# cross-origin clients. Format: https://fiscus-one.vercel.app
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
 # Application definition
 
 INSTALLED_APPS = [
